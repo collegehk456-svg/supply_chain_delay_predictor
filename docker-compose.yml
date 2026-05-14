@@ -1,0 +1,128 @@
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: supply_chain_db
+    environment:
+      POSTGRES_USER: supply_chain_user
+      POSTGRES_PASSWORD: secure_password_change_me
+      POSTGRES_DB: supply_chain
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supply_chain_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - supply_chain_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: supply_chain_cache
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - supply_chain_network
+
+  # MLflow Tracking Server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.7.1
+    container_name: supply_chain_mlflow
+    command: mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns --host 0.0.0.0
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlruns
+    networks:
+      - supply_chain_network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: supply_chain_api
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      DATABASE_URL: postgresql://supply_chain_user:secure_password_change_me@postgres:5432/supply_chain
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      REDIS_URL: redis://redis:6379/0
+      LOG_LEVEL: INFO
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+    volumes:
+      - ./:/app
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - supply_chain_network
+
+  # Streamlit Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: supply_chain_dashboard
+    environment:
+      PYTHONUNBUFFERED: 1
+      API_URL: http://backend:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+    volumes:
+      - ./:/app
+    networks:
+      - supply_chain_network
+
+  # Jupyter Notebook Server (Optional, for development/exploration)
+  jupyter:
+    image: jupyter/base-notebook:latest
+    container_name: supply_chain_jupyter
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/home/jovyan/work/data
+    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
+    networks:
+      - supply_chain_network
+
+volumes:
+  postgres_data:
+  mlflow_data:
+
+networks:
+  supply_chain_network:
+    driver: bridge
+

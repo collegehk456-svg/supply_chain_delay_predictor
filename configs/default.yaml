@@ -1,0 +1,101 @@
+# Default Configuration for Supply Chain Delay Predictor
+
+# API Configuration
+api:
+  host: 0.0.0.0
+  port: 8000
+  version: v1
+  reload: true
+  title: SmartShip AI
+  description: Supply Chain Delay Prediction API
+
+# Model Configuration
+model:
+  path: models/production/model.pkl
+  threshold: 0.5
+  type: xgboost
+  version: latest
+
+# Data Configuration
+data:
+  raw_path: data/raw/
+  processed_path: data/processed/
+  features_path: data/features/
+  test_size: 0.2
+  validation_size: 0.1
+  random_state: 42
+
+# Feature Configuration
+features:
+  numerical:
+    - Customer_care_calls
+    - Customer_rating
+    - Cost_of_the_Product
+    - Prior_purchases
+    - Discount_offered
+    - Weight_in_gms
+  categorical:
+    - Warehouse_block
+    - Mode_of_Shipment
+    - Product_importance
+    - Gender
+  target: Reached_on_Time_Y_N
+
+# Logging Configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: logs/app.log
+  max_bytes: 10485760
+  backup_count: 5
+
+# MLflow Configuration
+mlflow:
+  tracking_uri: http://localhost:5000
+  experiment_name: supply_chain_experiments
+  tags:
+    project: supply_chain
+    team: mlops
+
+# Database Configuration
+database:
+  type: sqlite
+  path: data/supply_chain.db
+  echo: false
+
+# Security Configuration
+security:
+  secret_key: your-secret-key-change-in-production
+  algorithm: HS256
+  access_token_expire_minutes: 30
+  api_key_header: X-API-Key
+
+# Performance Configuration
+performance:
+  batch_size: 32
+  max_workers: 4
+  timeout: 30
+
+# Feature Engineering Configuration
+feature_engineering:
+  scale_features: true
+  handle_outliers: true
+  create_interactions: true
+  handle_missing: true
+  imputation_strategy: mean
+
+# Model Training Configuration
+training:
+  test_size: 0.2
+  validation_size: 0.1
+  random_state: 42
+  cv_folds: 5
+  early_stopping: true
+  early_stopping_rounds: 10
+  metrics:
+    - accuracy
+    - precision
+    - recall
+    - f1
+    - auc
+    - roc_auc

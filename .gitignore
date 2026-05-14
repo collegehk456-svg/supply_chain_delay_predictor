@@ -1,0 +1,139 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.env
+.env.local
+.env.*.local
+
+# Testing
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+
+# Data
+data/raw/*
+data/processed/*
+data/features/*
+data/predictions/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/features/.gitkeep
+!data/predictions/.gitkeep
+
+# Models
+models/production/*.pkl
+models/staging/*.pkl
+models/archived/*.pkl
+!models/production/.gitkeep
+!models/staging/.gitkeep
+!models/archived/.gitkeep
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# MLflow
+mlruns/
+.mlflow/
+mlflow.db
+
+# DVC
+.dvc/
+.dvc.lock
+artifacts/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+*.ipynb
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+dump.rdb
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# OS
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Build artifacts
+*.egg-info/
+
+# Redis
+dump.rdb
+
+# Node modules (if using Node.js frontend)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Mac
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+ehthumbs.db
+
+# Project specific
+config.local.yaml
+secrets/
+credentials/
+.sixth/

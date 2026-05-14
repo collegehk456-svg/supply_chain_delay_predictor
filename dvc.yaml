@@ -1,0 +1,9 @@
+
+stages:
+  train:
+    cmd: python main.py
+    deps:
+      - data/raw/shipment.csv
+      - main.py
+    outs:
+      - models/model.pkl
