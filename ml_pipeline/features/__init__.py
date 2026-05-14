@@ -1,1 +1,5 @@
-"""Feature engineering package."""
+"""Feature engineering components."""
+
+from .engineer import FeatureEngineer
+
+__all__ = ["FeatureEngineer"]

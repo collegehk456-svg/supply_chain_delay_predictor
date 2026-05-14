@@ -1,245 +1,142 @@
-"""
-Data Preprocessor Module
-Handles data cleaning, transformation, and preparation.
-"""
+"""Data preprocessing module."""
 
 import pandas as pd
 import numpy as np
-import logging
-from typing import Tuple, Optional, List
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.impute import SimpleImputer
+from typing import List, Optional, Tuple
+import logging
 
 logger = logging.getLogger(__name__)
 
 
 class DataPreprocessor:
-    """Preprocess and transform raw data."""
+    """Preprocess and clean data."""
     
     def __init__(self):
         """Initialize preprocessor."""
-        self.numerical_features: List[str] = []
-        self.categorical_features: List[str] = []
-        self.target_column: str = ""
-        self.scalers: dict = {}
-        self.encoders: dict = {}
-        self.imputers: dict = {}
+        self.numerical_cols: List[str] = []
+        self.categorical_cols: List[str] = []
+        self.target_col: Optional[str] = None
+        self.scaler: Optional[StandardScaler] = None
+        self.label_encoders: dict = {}
     
-    def identify_features(
-        self,
-        df: pd.DataFrame,
-        numerical_cols: List[str],
-        categorical_cols: List[str],
-        target_col: str,
-    ) -> None:
-        """
-        Identify and store feature types.
+    def identify_features(self, df: pd.DataFrame, numerical: List[str], 
+                         categorical: List[str], target: str) -> None:
+        """Identify and store feature information.
         
         Args:
-            df: Input DataFrame
-            numerical_cols: List of numerical column names
-            categorical_cols: List of categorical column names
-            target_col: Target column name
+            df: Input dataframe
+            numerical: List of numerical column names
+            categorical: List of categorical column names
+            target: Target column name
         """
-        self.numerical_features = numerical_cols
-        self.categorical_features = categorical_cols
-        self.target_column = target_col
-        
-        logger.info(f"Numerical features: {len(numerical_cols)}")
-        logger.info(f"Categorical features: {len(categorical_cols)}")
+        self.numerical_cols = numerical
+        self.categorical_cols = categorical
+        self.target_col = target
+        logger.info(f"Identified {len(numerical)} numerical and {len(categorical)} categorical features")
     
-    def handle_missing_values(
-        self,
-        df: pd.DataFrame,
-        strategy: str = "mean",
-        is_fit: bool = True,
-    ) -> pd.DataFrame:
-        """
-        Handle missing values in data.
+    def preprocess(self, df: pd.DataFrame, is_fit: bool = True, 
+                   handle_outliers: bool = True, scale: bool = True,
+                   encode_categorical: bool = True) -> pd.DataFrame:
+        """Preprocess data with multiple steps.
         
         Args:
-            df: Input DataFrame
-            strategy: Imputation strategy (mean, median, most_frequent)
-            is_fit: Whether to fit the imputer
-        
-        Returns:
-            DataFrame with missing values handled
-        """
-        df_copy = df.copy()
-        
-        # Handle numerical features
-        if self.numerical_features:
-            if is_fit:
-                self.imputers['numerical'] = SimpleImputer(strategy=strategy)
-                df_copy[self.numerical_features] = self.imputers['numerical'].fit_transform(
-                    df_copy[self.numerical_features]
-                )
-            else:
-                df_copy[self.numerical_features] = self.imputers['numerical'].transform(
-                    df_copy[self.numerical_features]
-                )
-            logger.info(f"Imputed numerical features using {strategy}")
-        
-        # Handle categorical features
-        if self.categorical_features:
-            if is_fit:
-                self.imputers['categorical'] = SimpleImputer(strategy='most_frequent')
-                df_copy[self.categorical_features] = self.imputers['categorical'].fit_transform(
-                    df_copy[self.categorical_features]
-                )
-            else:
-                df_copy[self.categorical_features] = self.imputers['categorical'].transform(
-                    df_copy[self.categorical_features]
-                )
-            logger.info("Imputed categorical features using most_frequent")
-        
-        return df_copy
-    
-    def handle_outliers(
-        self,
-        df: pd.DataFrame,
-        method: str = "iqr",
-        threshold: float = 1.5,
-    ) -> pd.DataFrame:
-        """
-        Handle outliers using IQR method.
-        
-        Args:
-            df: Input DataFrame
-            method: Method to use (iqr, zscore)
-            threshold: Threshold for outlier detection
-        
-        Returns:
-            DataFrame with outliers handled
-        """
-        df_copy = df.copy()
-        
-        if method == "iqr":
-            for col in self.numerical_features:
-                Q1 = df_copy[col].quantile(0.25)
-                Q3 = df_copy[col].quantile(0.75)
-                IQR = Q3 - Q1
-                
-                lower_bound = Q1 - threshold * IQR
-                upper_bound = Q3 + threshold * IQR
-                
-                # Cap outliers instead of removing
-                df_copy[col] = df_copy[col].clip(lower_bound, upper_bound)
-            
-            logger.info(f"Handled outliers using IQR method with threshold {threshold}")
-        
-        return df_copy
-    
-    def encode_categorical(
-        self,
-        df: pd.DataFrame,
-        is_fit: bool = True,
-        encoding_type: str = "label",
-    ) -> pd.DataFrame:
-        """
-        Encode categorical variables.
-        
-        Args:
-            df: Input DataFrame
-            is_fit: Whether to fit the encoders
-            encoding_type: Type of encoding (label, onehot)
-        
-        Returns:
-            DataFrame with encoded categories
-        """
-        df_copy = df.copy()
-        
-        if encoding_type == "label":
-            for col in self.categorical_features:
-                if is_fit:
-                    self.encoders[col] = LabelEncoder()
-                    df_copy[col] = self.encoders[col].fit_transform(df_copy[col].astype(str))
-                else:
-                    df_copy[col] = self.encoders[col].transform(df_copy[col].astype(str))
-            
-            logger.info(f"Encoded {len(self.categorical_features)} categorical features")
-        
-        elif encoding_type == "onehot":
-            df_copy = pd.get_dummies(
-                df_copy,
-                columns=self.categorical_features,
-                drop_first=True,
-                dtype=int
-            )
-            logger.info(f"One-hot encoded {len(self.categorical_features)} categorical features")
-        
-        return df_copy
-    
-    def scale_features(
-        self,
-        df: pd.DataFrame,
-        is_fit: bool = True,
-    ) -> pd.DataFrame:
-        """
-        Scale numerical features using StandardScaler.
-        
-        Args:
-            df: Input DataFrame
-            is_fit: Whether to fit the scaler
-        
-        Returns:
-            DataFrame with scaled features
-        """
-        df_copy = df.copy()
-        
-        if self.numerical_features:
-            if is_fit:
-                self.scalers['standard'] = StandardScaler()
-                df_copy[self.numerical_features] = self.scalers['standard'].fit_transform(
-                    df_copy[self.numerical_features]
-                )
-            else:
-                df_copy[self.numerical_features] = self.scalers['standard'].transform(
-                    df_copy[self.numerical_features]
-                )
-            
-            logger.info(f"Scaled {len(self.numerical_features)} numerical features")
-        
-        return df_copy
-    
-    def preprocess(
-        self,
-        df: pd.DataFrame,
-        is_fit: bool = True,
-        handle_outliers: bool = True,
-        scale: bool = True,
-        encode_categorical: bool = True,
-    ) -> pd.DataFrame:
-        """
-        Apply full preprocessing pipeline.
-        
-        Args:
-            df: Input DataFrame
-            is_fit: Whether to fit transformers
+            df: Input dataframe
+            is_fit: Whether to fit transformers on this data
             handle_outliers: Whether to handle outliers
-            scale: Whether to scale features
-            encode_categorical: Whether to encode categories
-        
+            scale: Whether to scale numerical features
+            encode_categorical: Whether to encode categorical features
+            
         Returns:
-            Preprocessed DataFrame
+            Preprocessed dataframe
         """
-        logger.info("Starting preprocessing pipeline")
+        df_processed = df.copy()
         
         # Handle missing values
-        df = self.handle_missing_values(df, is_fit=is_fit)
+        logger.info("Handling missing values...")
+        df_processed = self._handle_missing_values(df_processed)
         
         # Handle outliers
         if handle_outliers:
-            df = self.handle_outliers(df)
+            logger.info("Handling outliers...")
+            df_processed = self._handle_outliers(df_processed)
+        
+        # Scale numerical features
+        if scale:
+            logger.info("Scaling numerical features...")
+            df_processed = self._scale_features(df_processed, is_fit)
         
         # Encode categorical features
         if encode_categorical:
-            df = self.encode_categorical(df, is_fit=is_fit)
+            logger.info("Encoding categorical features...")
+            df_processed = self._encode_categorical(df_processed, is_fit)
         
-        # Scale features
-        if scale:
-            df = self.scale_features(df, is_fit=is_fit)
+        return df_processed
+    
+    def _handle_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Handle missing values."""
+        df = df.copy()
         
-        logger.info("Preprocessing pipeline completed")
+        # Numerical: fill with median
+        for col in self.numerical_cols:
+            if col in df.columns and df[col].isnull().any():
+                median = df[col].median()
+                df[col].fillna(median, inplace=True)
+        
+        # Categorical: fill with mode
+        for col in self.categorical_cols:
+            if col in df.columns and df[col].isnull().any():
+                mode = df[col].mode()[0] if not df[col].mode().empty else 'Unknown'
+                df[col].fillna(mode, inplace=True)
+        
+        return df
+    
+    def _handle_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Handle outliers using IQR method."""
+        df = df.copy()
+        
+        for col in self.numerical_cols:
+            if col in df.columns:
+                Q1 = df[col].quantile(0.25)
+                Q3 = df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                
+                # Clip outliers
+                df[col] = df[col].clip(lower_bound, upper_bound)
+        
+        return df
+    
+    def _scale_features(self, df: pd.DataFrame, is_fit: bool) -> pd.DataFrame:
+        """Scale numerical features."""
+        df = df.copy()
+        
+        if is_fit:
+            self.scaler = StandardScaler()
+            scaled_data = self.scaler.fit_transform(df[self.numerical_cols])
+        else:
+            if self.scaler is None:
+                raise ValueError("Scaler not fitted. Set is_fit=True first.")
+            scaled_data = self.scaler.transform(df[self.numerical_cols])
+        
+        df[self.numerical_cols] = scaled_data
+        return df
+    
+    def _encode_categorical(self, df: pd.DataFrame, is_fit: bool) -> pd.DataFrame:
+        """Encode categorical features."""
+        df = df.copy()
+        
+        for col in self.categorical_cols:
+            if col in df.columns:
+                if is_fit:
+                    encoder = LabelEncoder()
+                    df[col] = encoder.fit_transform(df[col].astype(str))
+                    self.label_encoders[col] = encoder
+                else:
+                    if col not in self.label_encoders:
+                        raise ValueError(f"Encoder for {col} not fitted.")
+                    df[col] = self.label_encoders[col].transform(df[col].astype(str))
         
         return df
