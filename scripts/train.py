@@ -6,12 +6,16 @@ Orchestrates the complete ML pipeline from data loading to model evaluation.
 import argparse
 import logging
 import json
+import sys
 from pathlib import Path
 from datetime import datetime
 
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import ML pipeline components
 from ml_pipeline.data.loader import DataLoader
