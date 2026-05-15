@@ -28,6 +28,7 @@ from src.ml_pipeline.models.explainer import SHAPExplainer
 from src.ml_pipeline.ai import ExplanationGenerator, ActionRecommender
 from backend.services.recommendation_service import RecommendationService
 from backend.services.ai_chat_service import AIChatService
+from backend.services.anomaly_service import AnomalyDetectionService
 import joblib
 import numpy as np
 
@@ -46,6 +47,7 @@ explanation_generator: Optional[ExplanationGenerator] = None
 action_recommender: Optional[ActionRecommender] = None
 recommendation_service: Optional[RecommendationService] = None
 ai_chat_service: Optional[AIChatService] = None
+anomaly_service: Optional[AnomalyDetectionService] = None
 prediction_count = 0
 
 
@@ -53,7 +55,7 @@ prediction_count = 0
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown."""
-    global predictor, explainer, recommendation_service, ai_chat_service
+    global predictor, explainer, recommendation_service, ai_chat_service, anomaly_service
     
     # Startup
     logger.info("Starting up application...")
@@ -99,6 +101,24 @@ async def lifespan(app: FastAPI):
         # Initialize AI chat service
         ai_chat_service = AIChatService()
         logger.info("AI Chat service initialized")
+        
+        # Initialize anomaly detection service
+        anomaly_service = AnomalyDetectionService()
+        try:
+            train_df = pd.read_csv('data/raw/train.csv')
+            feature_map = {
+                'Customer_care_calls': 'customer_care_calls',
+                'Customer_rating': 'customer_rating',
+                'Cost_of_the_Product': 'cost_of_the_product',
+                'Prior_purchases': 'prior_purchases',
+                'Discount_offered': 'discount_offered',
+                'Weight_in_gms': 'weight_in_gms',
+            }
+            train_df = train_df.rename(columns=feature_map)
+            anomaly_service.train(train_df)
+            logger.info("Anomaly detection service trained on %d samples", len(train_df))
+        except Exception as e:
+            logger.warning(f"Anomaly training failed (will use rule-based only): {e}")
         
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
@@ -584,6 +604,71 @@ async def list_models():
             }
         ]
     }
+
+
+# ── Anomaly Detection Endpoints ───────────────────────────────────────────────
+
+@app.post("/api/v1/anomaly/score", tags=["Anomaly Detection"])
+async def score_anomaly(request: dict):
+    """Score a single shipment for anomaly/risk."""
+    global anomaly_service
+    if anomaly_service is None:
+        raise HTTPException(status_code=503, detail="Anomaly service not initialized")
+    try:
+        result = anomaly_service.score_shipment(request)
+        return result
+    except Exception as e:
+        logger.error(f"Anomaly scoring error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/anomaly/stream", tags=["Anomaly Detection"])
+async def get_live_stream(n: int = 15):
+    """Get simulated live shipment stream with risk scores."""
+    global anomaly_service
+    if anomaly_service is None:
+        raise HTTPException(status_code=503, detail="Anomaly service not initialized")
+    try:
+        stream = anomaly_service.simulate_live_stream(n=min(n, 30))
+        return {"shipments": stream, "count": len(stream), "timestamp": datetime.utcnow().isoformat()}
+    except Exception as e:
+        logger.error(f"Live stream error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/anomaly/executive-summary", tags=["Anomaly Detection"])
+async def get_executive_summary():
+    """AI-generated executive summary of current system risk."""
+    global anomaly_service
+    if anomaly_service is None:
+        raise HTTPException(status_code=503, detail="Anomaly service not initialized")
+    try:
+        return anomaly_service.get_executive_summary()
+    except Exception as e:
+        logger.error(f"Executive summary error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/anomaly/warehouse-risk", tags=["Anomaly Detection"])
+async def get_warehouse_risk():
+    """Get risk scores for each warehouse block."""
+    global anomaly_service
+    if anomaly_service is None:
+        raise HTTPException(status_code=503, detail="Anomaly service not initialized")
+    try:
+        return {"warehouse_blocks": anomaly_service.get_warehouse_risk_map()}
+    except Exception as e:
+        logger.error(f"Warehouse risk error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/anomaly/stats", tags=["Anomaly Detection"])
+async def get_anomaly_stats():
+    """Get anomaly detection statistics."""
+    global anomaly_service
+    if anomaly_service is None:
+        raise HTTPException(status_code=503, detail="Anomaly service not initialized")
+    return anomaly_service.stats
 
 
 # Error response schema

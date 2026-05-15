@@ -298,7 +298,7 @@ with st.sidebar:
     
     page = st.radio(
         "Navigation",
-        ["🏠 Home", "🔮 Single Prediction", "📦 Batch Predictions",
+        ["🏠 Home", "⚡ Command Center", "🔮 Single Prediction", "📦 Batch Predictions",
          "📊 Feature Analysis", "📈 Analytics", "🤖 AI Assistant", "ℹ️ About"],
         label_visibility="collapsed"
     )
@@ -331,7 +331,11 @@ with st.sidebar:
 # ═══════════════════════════════════════════════════════════════════════════════
 # HOME PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
-if page == "🏠 Home":
+if page == "⚡ Command Center":
+    from frontend.pages.command_center import render as render_cc
+    render_cc()
+
+elif page == "🏠 Home":
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title">SmartShip AI Platform</div>
@@ -840,21 +844,28 @@ elif page == "📈 Analytics":
 elif page == "🤖 AI Assistant":
     st.markdown("""
     <div class="hero-banner">
-        <div class="hero-title" style="font-size:1.9rem;">AI Supply Chain Assistant</div>
+        <div class="hero-title" style="font-size:1.9rem;">🤖 Multi-Agent AI System</div>
         <div class="hero-subtitle">
-            Chat with SmartShip's RAG-powered AI. Ask anything about delay predictions,
-            model insights, optimization strategies, and supply chain operations.
+            5 specialized AI agents collaborate to answer your supply chain questions.
+            Risk Analyst · Delay Predictor · Operations Advisor · Data Analyst · Executive Advisor
         </div>
+    </div>
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:1rem;">
+        <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:20px;padding:0.3rem 0.85rem;font-size:0.78rem;color:#ef4444;font-weight:600;">⚠️ Risk Analyst</div>
+        <div style="background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.25);border-radius:20px;padding:0.3rem 0.85rem;font-size:0.78rem;color:#a855f7;font-weight:600;">🔮 Delay Predictor</div>
+        <div style="background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.25);border-radius:20px;padding:0.3rem 0.85rem;font-size:0.78rem;color:#eab308;font-weight:600;">💡 Ops Advisor</div>
+        <div style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.25);border-radius:20px;padding:0.3rem 0.85rem;font-size:0.78rem;color:#00d4ff;font-weight:600;">📊 Data Analyst</div>
+        <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:20px;padding:0.3rem 0.85rem;font-size:0.78rem;color:#22c55e;font-weight:600;">📋 Exec Advisor</div>
     </div>
     """, unsafe_allow_html=True)
 
     suggestions = [
         "What causes the most delays?",
-        "How accurate is the model?",
-        "How can I reduce delays?",
-        "Explain the discount factor",
-        "How does batch prediction work?",
-        "What are SHAP values?",
+        "Give me an executive summary",
+        "How can I reduce delays by 30%?",
+        "What anomalies should I watch?",
+        "Analyze the discount relationship",
+        "Top operations recommendations",
     ]
 
     st.markdown('<div style="margin-bottom:0.75rem;font-size:0.78rem;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Quick Questions</div>', unsafe_allow_html=True)
@@ -878,15 +889,22 @@ elif page == "🤖 AI Assistant":
                 </div>
                 """
             else:
-                content = msg['content'].replace('\n', '<br>').replace('**', '<strong>').replace('**', '</strong>')
+                import re as _re
+                content = msg['content']
+                content = _re.sub(r'\*\*(.*?)\*\*', r'<strong style="color:#e2e8f0;">\1</strong>', content)
+                content = content.replace('\n', '<br>')
+                agent    = msg.get('agent') or {}
+                a_icon   = agent.get('icon', '🤖')
+                a_name   = agent.get('name', 'SmartShip AI')
+                a_role   = agent.get('role', 'AI Assistant')
                 sources_html = ""
                 if msg.get('sources'):
                     srcs = " · ".join(s['topic'].title() for s in msg['sources'][:2])
-                    sources_html = f'<div style="font-size:0.7rem;color:#334155;margin-top:6px;">Sources: {srcs}</div>'
+                    sources_html = f'<div style="font-size:0.7rem;color:#334155;margin-top:6px;">📚 {srcs}</div>'
+                agent_tag = f'<div style="font-size:0.7rem;color:#a855f7;font-weight:700;margin-bottom:4px;">{a_icon} {a_name} <span style="color:#475569;font-weight:400;">· {a_role}</span></div>'
                 chat_html += f"""
                 <div style="display:flex;flex-direction:column;align-items:flex-start;">
-                    <div class="chat-avatar">🤖</div>
-                    <div class="chat-msg-assistant">{content}{sources_html}</div>
+                    <div class="chat-msg-assistant">{agent_tag}{content}{sources_html}</div>
                     <div class="chat-timestamp">{ts}</div>
                 </div>
                 """
@@ -954,6 +972,7 @@ elif page == "🤖 AI Assistant":
             'role': 'assistant',
             'content': reply.get('response', ''),
             'sources': reply.get('sources', []),
+            'agent': reply.get('agent'),
             'timestamp': reply.get('timestamp', ts_now)
         })
         st.rerun()

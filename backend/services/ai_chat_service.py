@@ -308,9 +308,22 @@ class AIChatService:
             "timestamp": datetime.utcnow().isoformat()
         })
         
-        context_docs = self._get_context(message)
-        response_text = self._build_response(message, context_docs, session_id)
-        
+        # Try multi-agent orchestrator first
+        agent_info = None
+        try:
+            from backend.services.multi_agent_service import MultiAgentOrchestrator
+            if not hasattr(self, '_orchestrator'):
+                self._orchestrator = MultiAgentOrchestrator(self.search_engine)
+            result = self._orchestrator.process(message, session_id, self.conversation_history[session_id])
+            response_text = result["response"]
+            context_docs  = [{"topic": s["topic"], "id": s["id"]} for s in result.get("sources", [])]
+            agent_info    = result.get("agent")
+            session_ctx   = result.get("session_context", {})
+        except Exception:
+            context_docs = self._get_context(message)
+            response_text = self._build_response(message, context_docs, session_id)
+            session_ctx = {}
+
         self.conversation_history[session_id].append({
             "role": "assistant",
             "content": response_text,
@@ -320,19 +333,28 @@ class AIChatService:
         if len(self.conversation_history[session_id]) > 20:
             self.conversation_history[session_id] = self.conversation_history[session_id][-20:]
         
+        if context_docs and isinstance(context_docs[0], dict):
+            sources_out = context_docs
+        elif context_docs:
+            sources_out = [{"topic": d["topic"], "id": d["id"]} for d in context_docs]
+        else:
+            sources_out = []
+
         return {
             "response": response_text,
-            "sources": [{"topic": d["topic"], "id": d["id"]} for d in context_docs],
+            "sources": sources_out,
+            "agent": agent_info,
             "session_id": session_id,
+            "session_context": session_ctx,
             "timestamp": datetime.utcnow().isoformat()
         }
     
     def get_suggestions(self) -> List[str]:
         return [
             "What is the #1 cause of shipment delays?",
-            "How accurate is the prediction model?",
-            "How can I reduce my delay rate?",
-            "What does the discount feature mean?",
-            "How do I use the batch prediction feature?",
-            "Explain the SHAP values in predictions",
+            "Give me an executive summary of the platform",
+            "How can I reduce my delay rate by 30%?",
+            "What anomalies should I watch for?",
+            "Analyze the discount and delay relationship",
+            "What are the top recommendations for operations?",
         ]
