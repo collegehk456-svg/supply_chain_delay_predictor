@@ -3,6 +3,14 @@ SmartShip AI - Production-Grade Supply Chain Intelligence Platform
 Futuristic Streamlit dashboard with glassmorphism design.
 """
 
+import sys
+from pathlib import Path
+
+# Ensure project root is on path when launched via `streamlit run frontend/main.py`
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import streamlit as st
 import requests
 import pandas as pd
@@ -12,6 +20,8 @@ from datetime import datetime
 import json
 import os
 import uuid
+
+from frontend.components.styles_loader import inject_theme
 
 st.set_page_config(
     page_title="SmartShip AI",
@@ -98,29 +108,76 @@ html, body, [class*="css"] {
 }
 .stApp > header { background: transparent !important; }
 
-/* ── Sidebar ──────────────────────────────────────────── */
+/* ── Sidebar (base; extended in theme.css) ───────────── */
+@keyframes nav-glow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(0,212,255,0), inset 0 0 0 1px rgba(0,212,255,0.22); }
+  50%      { box-shadow: 0 0 18px rgba(0,212,255,0.14), inset 0 0 0 1px rgba(0,212,255,0.38); }
+}
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #050d1a 0%, #0a0e1f 100%) !important;
-    border-right: 1px solid rgba(0,212,255,0.1) !important;
+    background: linear-gradient(180deg, #050d1a 0%, #0a0e1f 55%, #070b18 100%) !important;
+    border-right: 1px solid rgba(0,212,255,0.12) !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.35) !important;
+}
+section[data-testid="stSidebar"] > div {
+    padding: 0.35rem 0.65rem 1.25rem !important;
+}
+section[data-testid="stSidebar"] .stRadio > div {
+    gap: 0.2rem !important;
+}
+section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] {
+    gap: 0.25rem !important;
 }
 section[data-testid="stSidebar"] .stRadio label {
-    color: #64748b !important;
-    font-weight: 500; font-size: 0.88rem;
-    padding: 5px 0; transition: color 0.2s, padding-left 0.2s;
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    color: #94a3b8 !important;
+    font-weight: 500 !important;
+    font-size: 0.86rem !important;
+    line-height: 1.35 !important;
+    padding: 0.52rem 0.7rem 0.52rem 0.65rem !important;
+    margin: 0 !important;
+    border-radius: 10px !important;
+    border: 1px solid transparent !important;
+    background: transparent !important;
+    transition: color 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.25s, transform 0.2s !important;
+    cursor: pointer !important;
 }
 section[data-testid="stSidebar"] .stRadio label:hover {
-    color: #00d4ff !important;
-    padding-left: 4px !important;
+    color: #e2e8f0 !important;
+    background: rgba(0,212,255,0.05) !important;
+    border-color: rgba(0,212,255,0.12) !important;
+    transform: translateX(2px) !important;
 }
-section[data-testid="stSidebar"] .stRadio [data-baseweb="radio"] [aria-checked="true"] + div {
+section[data-testid="stSidebar"] .stRadio label:has([aria-checked="true"]),
+section[data-testid="stSidebar"] .stRadio label:has(input:checked) {
     color: #00d4ff !important;
+    font-weight: 600 !important;
+    background: linear-gradient(90deg, rgba(0,212,255,0.14) 0%, rgba(0,212,255,0.04) 100%) !important;
+    border-color: rgba(0,212,255,0.32) !important;
+    animation: nav-glow 3s ease-in-out infinite !important;
+}
+section[data-testid="stSidebar"] .stRadio [data-baseweb="radio"] {
+    display: none !important;
+}
+section[data-testid="stSidebar"] .stRadio [data-baseweb="radio"] + div {
+    margin-left: 0 !important;
+}
+section[data-testid="stSidebar"] .stRadio label:has([aria-checked="true"]) > div:last-child,
+section[data-testid="stSidebar"] .stRadio label:has(input:checked) > div:last-child {
+    color: #00d4ff !important;
+    text-shadow: 0 0 12px rgba(0,212,255,0.35) !important;
 }
 
 /* ── Layout ───────────────────────────────────────────── */
 .block-container {
     padding: 1.5rem 2rem 3rem 2rem !important;
     max-width: 1400px;
-    animation: fade-in-up 0.4s ease-out;
+    opacity: 1 !important;
+}
+[data-testid="stAppViewContainer"] {
+    position: relative;
+    z-index: 1;
 }
 
 /* ── Hero Banner ─────────────────────────────────────── */
@@ -379,6 +436,8 @@ hr { border-color: rgba(255,255,255,0.06) !important; }
 </style>
 """, unsafe_allow_html=True)
 
+inject_theme()
+
 
 # ── Session state ─────────────────────────────────────────────────────────────
 defaults = {
@@ -411,63 +470,55 @@ def fmt_time(ts: str) -> str:
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
-    <div style="padding:1.1rem 0 0.4rem 0;">
-        <div style="font-size:1.55rem;font-weight:900;
-                    background:linear-gradient(135deg,#00d4ff,#a855f7);
-                    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-                    letter-spacing:-0.03em;">
-            SmartShip AI
-        </div>
-        <div style="font-size:0.68rem;color:#334155;margin-top:0.1rem;font-weight:600;
-                    text-transform:uppercase;letter-spacing:0.12em;
-                    font-family:'JetBrains Mono',monospace;">
-            Supply Chain Intelligence
-        </div>
-        <div style="font-size:0.65rem;color:#1e3a5f;margin-top:0.15rem;
-                    font-family:'JetBrains Mono',monospace;">
-            v2.0 · MLOps Platform
-        </div>
+    <div class="sidebar-brand">
+        <div class="sidebar-brand-title">SmartShip AI</div>
+        <div class="sidebar-brand-sub">Supply Chain Intelligence</div>
+        <div class="sidebar-brand-ver">v2.0 · MLOps Platform</div>
     </div>
     """, unsafe_allow_html=True)
 
     healthy = api_healthy()
     status_color = "#22c55e" if healthy else "#ef4444"
     status_text  = "All Systems Online" if healthy else "API Offline"
+    status_bg = "rgba(34,197,94,0.06)" if healthy else "rgba(239,68,68,0.06)"
+    status_border = "rgba(34,197,94,0.15)" if healthy else "rgba(239,68,68,0.2)"
     st.markdown(f"""
-    <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.15);
-                border-radius:8px;padding:0.5rem 0.75rem;margin-bottom:0.85rem;">
-        <div style="display:flex;align-items:center;gap:7px;">
-            <div style="width:7px;height:7px;border-radius:50%;background:{status_color};
-                        box-shadow:0 0 8px {status_color};flex-shrink:0;
-                        animation:status-ping 1.8s ease-in-out infinite;"></div>
-            <span style="font-size:0.75rem;color:{status_color};font-weight:700;
-                         text-transform:uppercase;letter-spacing:0.06em;">{status_text}</span>
+    <div class="sidebar-status" style="background:{status_bg};border-color:{status_border};">
+        <div class="sidebar-status-row">
+            <div class="sidebar-status-dot" style="background:{status_color};box-shadow:0 0 8px {status_color};"></div>
+            <span class="sidebar-status-text" style="color:{status_color};">{status_text}</span>
         </div>
-        <div style="font-size:0.65rem;color:#1e3a5f;margin-top:0.2rem;font-family:'JetBrains Mono',monospace;">
-            XGBoost · Isolation Forest · RAG · 5 Agents
-        </div>
+        <div class="sidebar-status-meta">XGBoost · Isolation Forest · RAG · 5 Agents</div>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown('<div style="height:1px;background:rgba(255,255,255,0.06);margin-bottom:1rem;"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
     
-    page = st.radio(
+    NAV_OPTIONS = [
+        "Home", "Command Center", "Executive Dashboard",
+        "Single Prediction", "Batch Predictions",
+        "Feature Analysis", "Analytics", "AI Assistant", "About",
+    ]
+    NAV_ICONS = {
+        "Home": "🏠", "Command Center": "⚡", "Executive Dashboard": "📋",
+        "Single Prediction": "🔮", "Batch Predictions": "📦",
+        "Feature Analysis": "📊", "Analytics": "📈", "AI Assistant": "🤖", "About": "ℹ️",
+    }
+    nav_choice = st.radio(
         "Navigation",
-        ["🏠 Home", "⚡ Command Center", "📋 Executive Dashboard",
-         "🔮 Single Prediction", "📦 Batch Predictions",
-         "📊 Feature Analysis", "📈 Analytics", "🤖 AI Assistant", "ℹ️ About"],
-        label_visibility="collapsed"
+        NAV_OPTIONS,
+        format_func=lambda x: f"{NAV_ICONS[x]} {x}",
+        label_visibility="collapsed",
+        key="main_nav",
     )
     
-    st.markdown('<div style="height:1px;background:rgba(255,255,255,0.06);margin:1rem 0;"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-divider sidebar-divider--spaced"></div>', unsafe_allow_html=True)
     
     total = len(st.session_state.predictions_history)
     if total > 0:
         delayed = sum(1 for p in st.session_state.predictions_history if p.get('prediction') == 1)
         st.markdown(f"""
-        <div style="font-size:0.72rem;color:#475569;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:0.6rem;">
-            Session Stats
-        </div>
+        <div class="sidebar-session-label">Session Stats</div>
         <div style="display:flex;flex-direction:column;gap:6px;">
             <div class="stat-badge">Predictions <span>{total}</span></div>
             <div class="stat-badge">Delayed <span style="color:#ef4444;">{delayed}</span></div>
@@ -483,19 +534,20 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
+page = nav_choice
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HOME PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
-if page == "⚡ Command Center":
-    from frontend.pages.command_center import render as render_cc
+if page == "Command Center":
+    from frontend.views.command_center import render as render_cc
     render_cc()
 
-elif page == "📋 Executive Dashboard":
-    from frontend.pages.executive_dashboard import render as render_exec
+elif page == "Executive Dashboard":
+    from frontend.views.executive_dashboard import render as render_exec
     render_exec()
 
-elif page == "🏠 Home":
+elif page == "Home":
     # Cinematic hero
     st.markdown("""
     <div class="hero-banner" style="padding:2.5rem 2.5rem 2rem;">
@@ -690,7 +742,7 @@ elif page == "🏠 Home":
 # ═══════════════════════════════════════════════════════════════════════════════
 # SINGLE PREDICTION PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "🔮 Single Prediction":
+elif page == "Single Prediction":
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title" style="font-size:1.9rem;">Single Shipment Prediction</div>
@@ -739,8 +791,8 @@ elif page == "🔮 Single Prediction":
             with st.spinner("Running AI prediction pipeline…"):
                 try:
                     resp = requests.post(
-                        f"{API_URL}/api/v1/predict-with-explanation",
-                        json=payload, timeout=15
+                        f"{API_URL}/api/v1/predict/logistics",
+                        json=payload, timeout=45
                     )
                     if resp.status_code == 200:
                         result = resp.json()
@@ -748,12 +800,14 @@ elif page == "🔮 Single Prediction":
 
                         is_delayed = result['prediction'] == 1
                         probability = result['probability_delayed']
-                        confidence = max(probability, 1 - probability)
+                        confidence = result.get('confidence', max(probability, 1 - probability))
+                        tier = result.get('risk_tier', 'MEDIUM')
+                        tier_colors = {'HIGH': '#ef4444', 'MEDIUM': '#f97316', 'LOW': '#22c55e'}
 
                         st.markdown("---")
                         st.markdown('<div style="font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:1rem;">Prediction Results</div>', unsafe_allow_html=True)
 
-                        c1, c2, c3 = st.columns(3)
+                        c1, c2, c3, c4 = st.columns(4)
                         with c1:
                             if is_delayed:
                                 st.markdown('<div class="pred-delayed"><div class="pred-label">Prediction</div><div class="pred-value-delayed">DELAYED</div></div>', unsafe_allow_html=True)
@@ -764,6 +818,21 @@ elif page == "🔮 Single Prediction":
                             st.markdown(f'<div class="section-card" style="text-align:center;"><div class="pred-label">Delay Probability</div><div class="pred-value-neutral" style="color:{prob_color};">{probability*100:.1f}%</div></div>', unsafe_allow_html=True)
                         with c3:
                             st.markdown(f'<div class="section-card" style="text-align:center;"><div class="pred-label">Confidence</div><div class="pred-value-neutral">{confidence*100:.1f}%</div></div>', unsafe_allow_html=True)
+                        with c4:
+                            tc = tier_colors.get(tier, '#94a3b8')
+                            st.markdown(f'<div class="section-card" style="text-align:center;border-color:{tc}55;"><div class="pred-label">Risk Tier</div><div style="font-size:1.6rem;font-weight:900;color:{tc};">{tier}</div></div>', unsafe_allow_html=True)
+
+                        biz = result.get('business_impact', {})
+                        prio = result.get('priority_score', 0)
+                        st.markdown('<div style="font-size:0.9rem;font-weight:700;color:#f1f5f9;margin:0.75rem 0 0.5rem;">Business & Operations Intelligence</div>', unsafe_allow_html=True)
+                        b1, b2, b3, b4 = st.columns(4)
+                        b1.metric("Priority Score", f"{prio}/100")
+                        b2.metric("Expected Loss", f"${biz.get('expected_loss_usd', 0):,.0f}")
+                        b3.metric("Savings if Action", f"${biz.get('mitigation_savings_usd', 0):,.0f}")
+                        b4.metric("Net Benefit", f"${biz.get('net_benefit_if_action_usd', 0):,.0f}")
+                        for rec in result.get('operational_recommendations', [])[:4]:
+                            pcolor = '#ef4444' if rec.get('priority') == 'P1' else '#f97316' if rec.get('priority') == 'P2' else '#22c55e'
+                            st.markdown(f'<div class="rec-card"><span style="font-size:0.68rem;font-weight:700;background:{pcolor};color:white;border-radius:4px;padding:1px 6px;">{rec.get("priority","P2")}</span> <span class="rec-action">{rec.get("action","")}</span><div class="rec-reason">{rec.get("impact","")}</div></div>', unsafe_allow_html=True)
 
                         st.markdown("<br>", unsafe_allow_html=True)
                         col_left, col_right = st.columns([1.2, 1])
@@ -827,7 +896,7 @@ elif page == "🔮 Single Prediction":
 # ═══════════════════════════════════════════════════════════════════════════════
 # BATCH PREDICTIONS PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "📦 Batch Predictions":
+elif page == "Batch Predictions":
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title" style="font-size:1.9rem;">Batch Predictions</div>
@@ -945,21 +1014,21 @@ elif page == "📦 Batch Predictions":
 # ═══════════════════════════════════════════════════════════════════════════════
 # FEATURE ANALYSIS PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "📊 Feature Analysis":
+elif page == "Feature Analysis":
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title" style="font-size:1.9rem;">Feature Analysis & Insights</div>
         <div class="hero-subtitle">Deep-dive into the ML model's feature importance and what drives shipment delays.</div>
     </div>
     """, unsafe_allow_html=True)
-    from frontend.pages.feature_insights import show_insights
+    from frontend.views.feature_insights import show_insights
     show_insights()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ANALYTICS PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "📈 Analytics":
+elif page == "Analytics":
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title" style="font-size:1.9rem;">Analytics Dashboard</div>
@@ -1168,7 +1237,7 @@ elif page == "📈 Analytics":
 # ═══════════════════════════════════════════════════════════════════════════════
 # AI ASSISTANT PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "🤖 AI Assistant":
+elif page == "AI Assistant":
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title" style="font-size:1.9rem;">🤖 Multi-Agent AI System</div>
@@ -1201,6 +1270,39 @@ elif page == "🤖 AI Assistant":
         with cols[i % 3]:
             if st.button(sug, key=f"sug_{i}", use_container_width=True):
                 st.session_state['pending_chat'] = sug
+
+    # ── RAG document upload ───────────────────────────────────────────────────
+    with st.expander("📚 Knowledge Base — Upload Documents", expanded=False):
+        st.caption("Upload SOPs, SLA docs, or runbooks (.txt) to ground AI answers with citations.")
+        rag_file = st.file_uploader("Document", type=["txt", "md"], key="rag_upload")
+        if rag_file and st.button("Index Document", key="rag_index_btn"):
+            if api_healthy():
+                try:
+                    content = rag_file.read().decode("utf-8", errors="ignore")
+                    r = requests.post(
+                        f"{API_URL}/api/v1/rag/upload",
+                        json={"filename": rag_file.name, "content": content},
+                        timeout=15,
+                    )
+                    if r.status_code == 200:
+                        meta = r.json()
+                        st.success(f"Indexed **{meta.get('name')}** ({meta.get('chunks')} chunks)")
+                    else:
+                        st.error(r.text[:200])
+                except Exception as exc:
+                    st.error(str(exc))
+            else:
+                st.warning("API offline — start backend first.")
+        if api_healthy():
+            try:
+                docs = requests.get(f"{API_URL}/api/v1/rag/documents", timeout=5).json().get("documents", [])
+                if docs:
+                    st.markdown("**Indexed documents:** " + ", ".join(d["name"] for d in docs))
+                summary = requests.get(f"{API_URL}/api/v1/rag/summary", timeout=5).json().get("summary", "")
+                if summary and "No custom" not in summary:
+                    st.info(summary[:500] + ("…" if len(summary) > 500 else ""))
+            except Exception:
+                pass
 
     st.markdown("---")
 
@@ -1280,7 +1382,7 @@ elif page == "🤖 AI Assistant":
                 resp = requests.post(
                     f"{API_URL}/api/v1/chat",
                     json={"message": message, "session_id": st.session_state.session_id},
-                    timeout=10
+                    timeout=30
                 )
                 if resp.status_code == 200:
                     reply = resp.json()
@@ -1325,7 +1427,7 @@ elif page == "🤖 AI Assistant":
 # ═══════════════════════════════════════════════════════════════════════════════
 # ABOUT PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "ℹ️ About":
+elif page == "About":
     st.markdown("""
     <div class="hero-banner" style="padding:2rem 2.5rem;">
         <div style="font-size:0.7rem;color:#00d4ff;text-transform:uppercase;letter-spacing:0.2em;
@@ -1454,7 +1556,7 @@ elif page == "ℹ️ About":
             </div>
             <div>
                 <div style="font-size:0.82rem;font-weight:700;color:#22c55e;margin-bottom:0.3rem;">🤖 Multi-Agent AI</div>
-                <div style="font-size:0.75zinc;color:#475569;line-height:1.5;">5 specialist agents · Risk analysis · Delay prediction · Operations advisory · Exec briefings</div>
+                <div style="font-size:0.75rem;color:#475569;line-height:1.5;">5 specialist agents · Risk analysis · Delay prediction · Operations advisory · Exec briefings</div>
             </div>
             <div>
                 <div style="font-size:0.82rem;font-weight:700;color:#f97316;margin-bottom:0.3rem;">🔮 Delay Prediction</div>

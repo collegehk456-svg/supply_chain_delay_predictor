@@ -160,6 +160,49 @@ class BatchPredictionResponse(BaseModel):
     processing_time_ms: float = Field(..., description="Processing time in milliseconds")
 
 
+class OperationalRecommendation(BaseModel):
+    """Single operational playbook item."""
+    action: str
+    impact: str
+    priority: str
+
+
+class BusinessImpact(BaseModel):
+    """Estimated financial exposure (USD)."""
+    expected_loss_usd: float
+    mitigation_savings_usd: float
+    priority_escalation_cost_usd: float
+    net_benefit_if_action_usd: float
+
+
+class LogisticsIntelligenceResponse(BaseModel):
+    """Full MLOps logistics decision payload."""
+    prediction: int
+    prediction_label: str
+    probability_delayed: float
+    confidence: float
+    risk_tier: str
+    risk_tier_description: str
+    priority_score: float
+    business_impact: BusinessImpact
+    operational_recommendations: List[OperationalRecommendation]
+    top_factors: List[dict]
+    explanation_text: str
+    explainability_method: str
+    model_version: str = "v1.0"
+
+
+class DriftReport(BaseModel):
+    """Model / data drift monitoring snapshot."""
+    status: str
+    delay_rate_baseline: float
+    delay_rate_current: Optional[float] = None
+    delay_rate_drift: Optional[float] = None
+    retrain_recommended: bool
+    message: str
+    timestamp: str
+
+
 class HealthStatus(BaseModel):
     """Health check response."""
     

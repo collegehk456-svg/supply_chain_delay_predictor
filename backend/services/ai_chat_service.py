@@ -230,14 +230,39 @@ class AIChatService:
     """Production-grade AI chat service with RAG capabilities."""
     
     def __init__(self):
-        self.search_engine = TFIDFSearchEngine()
-        self.search_engine.build(KNOWLEDGE_BASE)
+        from backend.services.rag_service import RAGDocumentStore
+        self.doc_store = RAGDocumentStore()
+        self._rebuild_index()
         self.conversation_history: Dict[str, List[Dict]] = {}
-        logger.info("AI Chat Service initialized with RAG knowledge base (%d documents)", len(KNOWLEDGE_BASE))
-    
+        logger.info(
+            "AI Chat Service initialized — %d base + %d uploaded chunks",
+            len(KNOWLEDGE_BASE),
+            len(self.doc_store.get_extra_documents()),
+        )
+
+    def _all_documents(self) -> List[Dict]:
+        return KNOWLEDGE_BASE + self.doc_store.get_extra_documents()
+
+    def _rebuild_index(self) -> None:
+        self.search_engine = TFIDFSearchEngine()
+        self.search_engine.build(self._all_documents())
+        self._indexed_docs = self._all_documents()
+
+    def add_document(self, filename: str, content: str) -> Dict[str, Any]:
+        meta = self.doc_store.add_document(filename, content)
+        self._rebuild_index()
+        return meta
+
+    def list_documents(self) -> List[Dict]:
+        return self.doc_store.list_documents()
+
+    def get_knowledge_summary(self) -> str:
+        return self.doc_store.summarize_documents()
+
     def _get_context(self, query: str) -> List[Dict]:
-        results = self.search_engine.search(query, top_k=3)
-        return [KNOWLEDGE_BASE[idx] for idx, score in results]
+        results = self.search_engine.search(query, top_k=4)
+        docs = self._indexed_docs
+        return [docs[idx] for idx, score in results if idx < len(docs)]
     
     def _build_response(self, query: str, context_docs: List[Dict], session_id: str) -> str:
         query_lower = query.lower()
@@ -264,6 +289,11 @@ class AIChatService:
         
         primary = context_docs[0]
         additional = context_docs[1:] if len(context_docs) > 1 else []
+        citation = ""
+        if primary.get("source_file"):
+            citation = f"\n\n*Source: uploaded document `{primary['source_file']}`*"
+        elif primary.get("id"):
+            citation = f"\n\n*Source: knowledge base — {primary['id'].replace('_', ' ')}*"
         
         intro_phrases = [
             "Based on SmartShip's data and ML insights,",
@@ -276,7 +306,7 @@ class AIChatService:
         phrase_idx = sum(ord(c) for c in query_lower[:10]) % len(intro_phrases)
         intro = intro_phrases[phrase_idx]
         
-        response = f"{intro} {primary['content']}"
+        response = f"{intro} {primary['content']}{citation}"
         
         if additional and len(query.split()) > 5:
             supplement = additional[0]['content']
@@ -333,16 +363,20 @@ class AIChatService:
         if len(self.conversation_history[session_id]) > 20:
             self.conversation_history[session_id] = self.conversation_history[session_id][-20:]
         
-        if context_docs and isinstance(context_docs[0], dict):
-            sources_out = context_docs
-        elif context_docs:
-            sources_out = [{"topic": d["topic"], "id": d["id"]} for d in context_docs]
-        else:
-            sources_out = []
+        sources_out = []
+        for d in (context_docs or []):
+            if isinstance(d, dict):
+                sources_out.append({
+                    "topic": d.get("topic", ""),
+                    "id": d.get("id", ""),
+                    "source_file": d.get("source_file"),
+                    "citation": d.get("source_file") or d.get("id", ""),
+                })
 
         return {
             "response": response_text,
             "sources": sources_out,
+            "citations": [s.get("citation") for s in sources_out if s.get("citation")],
             "agent": agent_info,
             "session_id": session_id,
             "session_context": session_ctx,

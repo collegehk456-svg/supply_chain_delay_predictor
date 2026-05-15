@@ -12,9 +12,10 @@ api:
 # Model Configuration
 model:
   path: models/production/model.pkl
+  full_pipeline_path: models/production/full_pipeline.pkl
   threshold: 0.5
   type: xgboost
-  version: latest
+  version: v1.0
 
 # Data Configuration
 data:

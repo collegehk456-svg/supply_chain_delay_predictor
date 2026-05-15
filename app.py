@@ -1,31 +1,25 @@
+"""
+SmartShip AI — unified entry point.
+Runs the production FastAPI backend (not the legacy minimal API).
+"""
 
-from fastapi import FastAPI
-from pydantic import BaseModel
-import pandas as pd
-import joblib
+import os
+import sys
 
-app = FastAPI(title="SmartShip AI")
+if __name__ == "__main__":
+    import uvicorn
 
-model = joblib.load("models/model.pkl")
+    root = os.path.dirname(os.path.abspath(__file__))
+    if root not in sys.path:
+        sys.path.insert(0, root)
 
-class ShipmentInput(BaseModel):
-    Warehouse_block: str
-    Mode_of_Shipment: str
-    Customer_care_calls: int
-    Customer_rating: int
-    Cost_of_the_Product: int
-    Prior_purchases: int
-    Product_importance: str
-    Gender: str
-    Discount_offered: int
-    Weight_in_gms: int
+    host = os.getenv("API_HOST", "0.0.0.0")
+    port = int(os.getenv("API_PORT", "8000"))
+    reload = os.getenv("API_RELOAD", "true").lower() == "true"
 
-@app.get("/")
-def home():
-    return {"message": "SmartShip AI Running"}
-
-@app.post("/predict")
-def predict(data: ShipmentInput):
-    df = pd.DataFrame([data.dict()])
-    prediction = model.predict(df)[0]
-    return {"prediction": int(prediction)}
+    uvicorn.run(
+        "backend.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+    )

@@ -21,8 +21,10 @@ from backend.config import get_config
 from backend.logging_config import setup_logging, get_logger
 from backend.api.schemas.shipment import (
     ShipmentInput, ShipmentPrediction, ShipmentExplanation,
-    BatchPredictionRequest, BatchPredictionResponse, HealthStatus
+    BatchPredictionRequest, BatchPredictionResponse, HealthStatus,
+    LogisticsIntelligenceResponse, DriftReport,
 )
+from backend.services.logistics_intelligence import enrich_prediction
 from src.ml_pipeline.models.predictor import ModelPredictor
 from src.ml_pipeline.models.explainer import SHAPExplainer
 from src.ml_pipeline.ai import ExplanationGenerator, ActionRecommender
@@ -105,7 +107,10 @@ async def lifespan(app: FastAPI):
         # Initialize anomaly detection service
         anomaly_service = AnomalyDetectionService()
         try:
-            train_df = pd.read_csv('data/raw/train.csv')
+            train_path = Path('data/raw/train.csv')
+            if not train_path.exists():
+                train_path = Path('Train.csv')
+            train_df = pd.read_csv(train_path)
             feature_map = {
                 'Customer_care_calls': 'customer_care_calls',
                 'Customer_rating': 'customer_rating',
@@ -362,6 +367,57 @@ async def predict_with_explanation(request: ShipmentInput):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/v1/predict/logistics", response_model=LogisticsIntelligenceResponse, tags=["Predictions"])
+async def predict_logistics_intelligence(request: ShipmentInput):
+    """
+    IEEE MLOps flagship endpoint: prediction + risk tier + priority score +
+    business impact + operational playbooks + explainability.
+    """
+    global predictor
+
+    if predictor is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+
+    try:
+        result = predictor.predict_single(request.model_dump())
+        importance_df = predictor.get_feature_importance(top_n=5)
+        top_factors = [
+            {"feature": row["feature"], "importance": float(row["importance"])}
+            for _, row in importance_df.iterrows()
+        ]
+        explanation_text = _generate_explanation(request, result)
+        payload = enrich_prediction(
+            shipment=request.model_dump(),
+            prediction=result["prediction"],
+            probability_delayed=result["probability_delayed"],
+            confidence=result["confidence"],
+            top_factors=top_factors,
+            explanation_text=explanation_text,
+        )
+        payload["model_version"] = "v1.0"
+        try:
+            from scripts.log_prediction import log_prediction
+            log_prediction(
+                result["prediction"],
+                result["probability_delayed"],
+                payload["risk_tier"],
+                payload["priority_score"],
+            )
+        except Exception as log_exc:
+            logger.debug("Prediction log skipped: %s", log_exc)
+
+        logger.info(
+            "Logistics intel: %s tier=%s priority=%.1f",
+            payload["prediction_label"],
+            payload["risk_tier"],
+            payload["priority_score"],
+        )
+        return LogisticsIntelligenceResponse(**payload)
+    except Exception as e:
+        logger.error(f"Logistics intelligence error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/v1/explain", tags=["Explainability"])
 async def explain_prediction(request: ShipmentInput):
     """
@@ -578,6 +634,45 @@ async def get_chat_suggestions():
     return {"suggestions": ai_chat_service.get_suggestions()}
 
 
+@app.post("/api/v1/rag/upload", tags=["RAG"])
+async def rag_upload_document(request: dict):
+    """Upload text document for RAG indexing (supply chain SOPs, SLAs, runbooks)."""
+    global ai_chat_service
+    if ai_chat_service is None:
+        raise HTTPException(status_code=503, detail="AI chat service not initialized")
+    filename = request.get("filename", "document.txt")
+    content = request.get("content", "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Document content cannot be empty")
+    try:
+        meta = ai_chat_service.add_document(filename, content)
+        return {"status": "indexed", **meta}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/v1/rag/documents", tags=["RAG"])
+async def rag_list_documents():
+    """List user-uploaded RAG documents."""
+    global ai_chat_service
+    if ai_chat_service is None:
+        return {"documents": []}
+    return {"documents": ai_chat_service.list_documents()}
+
+
+@app.get("/api/v1/rag/summary", tags=["RAG"])
+async def rag_knowledge_summary():
+    """AI summary of uploaded knowledge base documents."""
+    global ai_chat_service
+    if ai_chat_service is None:
+        raise HTTPException(status_code=503, detail="AI chat service not initialized")
+    return {
+        "summary": ai_chat_service.get_knowledge_summary(),
+        "document_count": len(ai_chat_service.list_documents()),
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+
 # Analytics endpoints
 @app.get("/api/v1/analytics/summary", tags=["Analytics"])
 async def analytics_summary():
@@ -669,6 +764,60 @@ async def get_anomaly_stats():
     if anomaly_service is None:
         raise HTTPException(status_code=503, detail="Anomaly service not initialized")
     return anomaly_service.stats
+
+
+# ── MLOps: Drift & Retraining ─────────────────────────────────────────────────
+
+@app.get("/api/v1/mlops/drift", response_model=DriftReport, tags=["MLOps"])
+async def mlops_drift_check():
+    """Compare live delay-rate distribution vs training baseline; recommend retrain if drifted."""
+    from scripts.monitor_drift import compute_drift_report
+
+    report = compute_drift_report()
+    return DriftReport(**report)
+
+
+@app.post("/api/v1/mlops/retrain", tags=["MLOps"])
+async def mlops_trigger_retrain(force: bool = False):
+    """
+    Trigger automated retraining when drift exceeds threshold (or force=True).
+    Runs training pipeline as background subprocess.
+    """
+    import subprocess
+    import sys
+
+    from scripts.monitor_drift import compute_drift_report
+
+    report = compute_drift_report()
+    if not force and not report.get("retrain_recommended"):
+        return {
+            "status": "skipped",
+            "message": report.get("message"),
+            "drift": report,
+        }
+
+    data_path = Path("data/raw/train.csv")
+    if not data_path.exists() and Path("Train.csv").exists():
+        data_path = Path("Train.csv")
+
+    logger.info("MLOps retrain triggered (force=%s)", force)
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "scripts/train.py",
+            "--data-path",
+            str(data_path),
+            "--output-path",
+            "models/production/model.pkl",
+        ],
+        cwd=str(Path(__file__).resolve().parent.parent),
+    )
+    return {
+        "status": "started",
+        "pid": proc.pid,
+        "message": "Retraining pipeline launched. Monitor logs/ and models/production/metrics.json",
+        "drift": report,
+    }
 
 
 # Error response schema

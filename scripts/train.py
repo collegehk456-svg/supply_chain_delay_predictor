@@ -229,6 +229,33 @@ def save_model(trainer: ModelTrainer, model_path: str) -> None:
     logger.info(f"Model saved to {model_path}")
  # Removed save_model function as it's now handled by ModelPredictor.save
 
+def _log_to_mlflow(config: dict, metrics: dict, model_path: Path) -> None:
+    """Log experiment to MLflow when tracking server is available."""
+    try:
+        import mlflow
+        import mlflow.sklearn
+
+        uri = config.get("mlflow", {}).get("tracking_uri", "http://localhost:5000")
+        mlflow.set_tracking_uri(uri)
+        mlflow.set_experiment(
+            config.get("mlflow", {}).get("experiment_name", "supply_chain_experiments")
+        )
+        with mlflow.start_run(run_name=f"xgboost_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
+            mlflow.log_params({
+                "model_type": "xgboost",
+                "test_size": config.get("data", {}).get("test_size", 0.2),
+            })
+            for key, val in metrics.items():
+                if isinstance(val, (int, float)) and key != "confusion_matrix":
+                    mlflow.log_metric(key, float(val))
+            if model_path.exists():
+                mlflow.log_artifact(str(model_path))
+            mlflow.set_tag("project", "supply_chain")
+        logger.info("MLflow run logged successfully")
+    except Exception as exc:
+        logger.info("MLflow logging skipped (server may be offline): %s", exc)
+
+
 def main(args):
     """Main training function."""
     logger.info("=" * 80)
@@ -278,6 +305,8 @@ def main(args):
                        for k, v in metrics.items() if k != 'confusion_matrix'}
         json.dump(metrics_json, f, indent=2)
     logger.info(f"Metrics saved to {metrics_file}")
+
+    _log_to_mlflow(config, metrics, Path(args.output_path).parent / "full_pipeline.pkl")
     
     logger.info("=" * 80)
     logger.info("Pipeline completed successfully!")
