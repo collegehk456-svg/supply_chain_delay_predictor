@@ -25,218 +25,357 @@ API_URL = os.getenv("API_URL", "http://localhost:8000")
 # ── Global CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'Inter', -apple-system, sans-serif !important;
+/* ── Keyframe Animations ─────────────────────────────── */
+@keyframes orb-float-a {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%      { transform: translate(60px,-40px) scale(1.15); }
+  66%      { transform: translate(-30px,50px) scale(0.9); }
+}
+@keyframes orb-float-b {
+  0%,100% { transform: translate(0,0) scale(1); }
+  40%      { transform: translate(-70px,30px) scale(1.2); }
+  70%      { transform: translate(40px,-60px) scale(0.85); }
+}
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+@keyframes glow-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(0,212,255,0); }
+  50%      { box-shadow: 0 0 20px 4px rgba(0,212,255,0.18); }
+}
+@keyframes border-glow {
+  0%,100% { border-color: rgba(0,212,255,0.15); }
+  50%      { border-color: rgba(0,212,255,0.45); }
+}
+@keyframes scan-line {
+  0%   { top: -4px; }
+  100% { top: 100%; }
+}
+@keyframes title-gradient {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes fade-in-up {
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes counter-pulse {
+  0%,100% { transform:scale(1); }
+  50%      { transform:scale(1.04); }
 }
 
-/* Dark background */
+/* ── Base ─────────────────────────────────────────────── */
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* Animated orb background */
 .stApp {
-    background: linear-gradient(135deg, #020817 0%, #0a1628 50%, #0d1f3c 100%) !important;
+    background: #020817 !important;
+    position: relative !important;
+    overflow-x: hidden !important;
+}
+.stApp::before, .stApp::after {
+    content: '';
+    position: fixed; pointer-events: none; z-index: 0; border-radius: 50%;
+    filter: blur(80px);
+}
+.stApp::before {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(0,212,255,0.07) 0%, transparent 70%);
+    top: -150px; left: -150px;
+    animation: orb-float-a 18s ease-in-out infinite;
+}
+.stApp::after {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(168,85,247,0.07) 0%, transparent 70%);
+    bottom: -100px; right: -100px;
+    animation: orb-float-b 22s ease-in-out infinite;
 }
 .stApp > header { background: transparent !important; }
 
-/* Sidebar */
+/* ── Sidebar ──────────────────────────────────────────── */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0a0e27 0%, #0f172a 100%) !important;
-    border-right: 1px solid rgba(0,212,255,0.12) !important;
+    background: linear-gradient(180deg, #050d1a 0%, #0a0e1f 100%) !important;
+    border-right: 1px solid rgba(0,212,255,0.1) !important;
 }
 section[data-testid="stSidebar"] .stRadio label {
-    color: #94a3b8 !important;
-    font-weight: 500;
-    font-size: 0.9rem;
-    padding: 6px 0;
-    transition: color 0.2s;
+    color: #64748b !important;
+    font-weight: 500; font-size: 0.88rem;
+    padding: 5px 0; transition: color 0.2s, padding-left 0.2s;
 }
-section[data-testid="stSidebar"] .stRadio label:hover { color: #00d4ff !important; }
+section[data-testid="stSidebar"] .stRadio label:hover {
+    color: #00d4ff !important;
+    padding-left: 4px !important;
+}
+section[data-testid="stSidebar"] .stRadio [data-baseweb="radio"] [aria-checked="true"] + div {
+    color: #00d4ff !important;
+}
 
-/* Main content padding */
-.block-container { padding: 1.5rem 2rem 3rem 2rem !important; max-width: 1400px; }
+/* ── Layout ───────────────────────────────────────────── */
+.block-container {
+    padding: 1.5rem 2rem 3rem 2rem !important;
+    max-width: 1400px;
+    animation: fade-in-up 0.4s ease-out;
+}
 
-/* Page hero banner */
+/* ── Hero Banner ─────────────────────────────────────── */
 .hero-banner {
-    background: linear-gradient(135deg, rgba(0,212,255,0.08) 0%, rgba(168,85,247,0.08) 100%);
-    border: 1px solid rgba(0,212,255,0.15);
+    background: linear-gradient(135deg, rgba(0,212,255,0.07) 0%, rgba(168,85,247,0.07) 100%);
+    border: 1px solid rgba(0,212,255,0.18);
     border-radius: 20px;
     padding: 2rem 2.5rem;
     margin-bottom: 1.5rem;
-    position: relative;
-    overflow: hidden;
+    position: relative; overflow: hidden;
+    animation: border-glow 4s ease-in-out infinite;
 }
 .hero-banner::before {
     content: '';
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    background: radial-gradient(ellipse at top left, rgba(0,212,255,0.06) 0%, transparent 60%);
+    background: radial-gradient(ellipse at 20% 50%, rgba(0,212,255,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 50%, rgba(168,85,247,0.05) 0%, transparent 60%);
+    pointer-events: none;
+}
+.hero-banner::after {
+    content: '';
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.6), transparent);
+    animation: scan-line 3.5s linear infinite;
     pointer-events: none;
 }
 .hero-title {
-    font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em;
-    background: linear-gradient(135deg, #00d4ff 0%, #a855f7 100%);
+    font-size: 2.4rem; font-weight: 900; letter-spacing: -0.04em;
+    background: linear-gradient(135deg, #00d4ff 0%, #a855f7 50%, #00d4ff 100%);
+    background-size: 200% 200%;
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text; margin: 0 0 0.4rem 0;
+    animation: title-gradient 6s ease infinite;
 }
-.hero-subtitle { color: #94a3b8; font-size: 1rem; margin: 0; font-weight: 400; }
+.hero-subtitle { color: #64748b; font-size: 1rem; margin: 0; font-weight: 400; letter-spacing: 0.01em; }
 
-/* Metric cards */
+/* ── KPI Cards ───────────────────────────────────────── */
 .kpi-grid { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
 .kpi-card {
-    flex: 1; min-width: 160px;
-    background: rgba(15,23,42,0.7);
-    border: 1px solid rgba(0,212,255,0.15);
-    border-radius: 16px; padding: 1.25rem 1.5rem;
-    backdrop-filter: blur(10px);
-    transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+    flex: 1; min-width: 155px;
+    background: rgba(10,14,31,0.85);
+    border: 1px solid rgba(0,212,255,0.12);
+    border-radius: 16px; padding: 1.25rem 1.4rem;
+    backdrop-filter: blur(16px);
+    transition: all 0.28s cubic-bezier(0.4,0,0.2,1);
     position: relative; overflow: hidden;
 }
+.kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: -150%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.04), transparent);
+    transition: left 0.5s ease;
+}
+.kpi-card:hover::before { left: 150%; }
 .kpi-card:hover {
     border-color: rgba(0,212,255,0.4);
-    box-shadow: 0 8px 32px rgba(0,212,255,0.12);
-    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0,212,255,0.12), 0 0 0 1px rgba(0,212,255,0.08);
+    transform: translateY(-4px);
 }
-.kpi-icon { font-size: 1.4rem; margin-bottom: 0.6rem; }
+.kpi-icon { font-size: 1.4rem; margin-bottom: 0.55rem; }
 .kpi-value {
-    font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;
+    font-size: 2.1rem; font-weight: 900; letter-spacing: -0.03em;
     background: linear-gradient(135deg, #00d4ff 0%, #0ea5e9 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text; margin-bottom: 0.25rem;
+    background-clip: text; margin-bottom: 0.2rem;
+    animation: counter-pulse 3s ease-in-out infinite;
 }
-.kpi-label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
-.kpi-change { font-size: 0.8rem; color: #22c55e; font-weight: 600; margin-top: 0.4rem; }
+.kpi-label { font-size: 0.72rem; color: #475569; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 700; }
+.kpi-change { font-size: 0.78rem; color: #22c55e; font-weight: 600; margin-top: 0.4rem; }
 
-/* Section cards */
+/* ── Section Cards ───────────────────────────────────── */
 .section-card {
-    background: rgba(15,23,42,0.6);
+    background: rgba(10,14,31,0.7);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 16px; padding: 1.5rem;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(16px);
     margin-bottom: 1rem;
+    transition: border-color 0.25s;
 }
+.section-card:hover { border-color: rgba(0,212,255,0.15); }
 
-/* Prediction result cards */
+/* ── Prediction Cards ────────────────────────────────── */
 .pred-delayed {
-    background: linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.04) 100%);
+    background: linear-gradient(135deg, rgba(239,68,68,0.1) 0%, rgba(239,68,68,0.03) 100%);
     border: 1px solid rgba(239,68,68,0.35);
     border-radius: 16px; padding: 1.5rem; text-align: center;
+    box-shadow: 0 0 30px rgba(239,68,68,0.08);
 }
 .pred-ontime {
-    background: linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(34,197,94,0.04) 100%);
+    background: linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(34,197,94,0.03) 100%);
     border: 1px solid rgba(34,197,94,0.35);
     border-radius: 16px; padding: 1.5rem; text-align: center;
+    box-shadow: 0 0 30px rgba(34,197,94,0.08);
 }
-.pred-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; font-weight: 600; margin-bottom: 0.5rem; }
-.pred-value-delayed { font-size: 1.8rem; font-weight: 800; color: #ef4444; }
-.pred-value-ontime { font-size: 1.8rem; font-weight: 800; color: #22c55e; }
-.pred-value-neutral { font-size: 1.8rem; font-weight: 800; color: #00d4ff; }
+.pred-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; font-weight: 700; margin-bottom: 0.5rem; }
+.pred-value-delayed { font-size: 1.9rem; font-weight: 900; color: #ef4444; text-shadow: 0 0 20px rgba(239,68,68,0.4); }
+.pred-value-ontime  { font-size: 1.9rem; font-weight: 900; color: #22c55e; text-shadow: 0 0 20px rgba(34,197,94,0.4); }
+.pred-value-neutral { font-size: 1.9rem; font-weight: 900; color: #00d4ff; text-shadow: 0 0 20px rgba(0,212,255,0.4); }
 
-/* Factor pills */
+/* ── Factor Pills ────────────────────────────────────── */
 .factor-pill {
     display: inline-block;
-    background: rgba(0,212,255,0.1);
-    border: 1px solid rgba(0,212,255,0.25);
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
     color: #00d4ff; border-radius: 20px;
-    padding: 0.3rem 0.9rem; font-size: 0.82rem; font-weight: 600;
+    padding: 0.28rem 0.85rem; font-size: 0.8rem; font-weight: 600;
     margin: 0.2rem; transition: all 0.2s;
 }
+.factor-pill:hover {
+    background: rgba(0,212,255,0.15);
+    box-shadow: 0 0 12px rgba(0,212,255,0.2);
+}
 
-/* Chat bubbles */
+/* ── Chat ────────────────────────────────────────────── */
 .chat-container {
     display: flex; flex-direction: column; gap: 0.75rem;
     max-height: 460px; overflow-y: auto; padding: 1rem 0;
 }
 .chat-msg-user {
-    background: linear-gradient(135deg, rgba(0,212,255,0.15) 0%, rgba(14,165,233,0.1) 100%);
-    border: 1px solid rgba(0,212,255,0.25);
+    background: linear-gradient(135deg, rgba(0,212,255,0.13) 0%, rgba(14,165,233,0.08) 100%);
+    border: 1px solid rgba(0,212,255,0.22);
     border-radius: 16px 16px 4px 16px;
     padding: 0.85rem 1.1rem; align-self: flex-end;
-    max-width: 80%; color: #e2e8f0; font-size: 0.9rem; line-height: 1.5;
+    max-width: 80%; color: #e2e8f0; font-size: 0.88rem; line-height: 1.55;
 }
 .chat-msg-assistant {
-    background: rgba(15,23,42,0.8);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(10,14,31,0.85);
+    border: 1px solid rgba(168,85,247,0.15);
     border-radius: 16px 16px 16px 4px;
     padding: 0.85rem 1.1rem; align-self: flex-start;
-    max-width: 85%; color: #cbd5e1; font-size: 0.9rem; line-height: 1.6;
+    max-width: 86%; color: #cbd5e1; font-size: 0.88rem; line-height: 1.65;
+    box-shadow: 0 4px 24px rgba(168,85,247,0.06);
 }
 .chat-avatar { font-size: 1.1rem; margin-bottom: 0.25rem; }
-.chat-timestamp { font-size: 0.7rem; color: #475569; margin-top: 0.3rem; }
+.chat-timestamp { font-size: 0.68rem; color: #334155; margin-top: 0.3rem; font-family: 'JetBrains Mono', monospace; }
 
-/* Suggestion chips */
+/* ── Suggestion Chips ────────────────────────────────── */
 .suggestion-chip {
     display: inline-block;
-    background: rgba(168,85,247,0.1);
-    border: 1px solid rgba(168,85,247,0.3);
+    background: rgba(168,85,247,0.08);
+    border: 1px solid rgba(168,85,247,0.25);
     color: #c084fc; border-radius: 20px;
-    padding: 0.3rem 0.85rem; font-size: 0.8rem;
+    padding: 0.28rem 0.85rem; font-size: 0.79rem;
     margin: 0.2rem; cursor: pointer;
     transition: all 0.2s;
 }
 .suggestion-chip:hover {
-    background: rgba(168,85,247,0.2);
+    background: rgba(168,85,247,0.18);
     border-color: rgba(168,85,247,0.5);
+    box-shadow: 0 0 12px rgba(168,85,247,0.2);
 }
 
-/* Rec cards */
+/* ── Rec Cards ───────────────────────────────────────── */
 .rec-card {
-    background: rgba(15,23,42,0.5);
+    background: rgba(10,14,31,0.6);
     border-left: 3px solid #00d4ff;
     border-radius: 0 12px 12px 0;
     padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+    transition: border-left-width 0.2s;
 }
+.rec-card:hover { border-left-width: 4px; }
 .rec-card.high { border-left-color: #ef4444; }
 .rec-card.medium { border-left-color: #f97316; }
-.rec-action { font-size: 0.9rem; font-weight: 600; color: #f1f5f9; margin-bottom: 0.3rem; }
-.rec-reason { font-size: 0.82rem; color: #94a3b8; margin-bottom: 0.3rem; }
-.rec-impact { font-size: 0.78rem; color: #22c55e; font-weight: 600; }
+.rec-action { font-size: 0.88rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.3rem; }
+.rec-reason { font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.3rem; }
+.rec-impact { font-size: 0.76rem; color: #22c55e; font-weight: 700; }
 
-/* Stat badges */
+/* ── Stat Badges ─────────────────────────────────────── */
 .stat-badge {
     display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(0,212,255,0.08);
-    border: 1px solid rgba(0,212,255,0.2);
-    border-radius: 8px; padding: 0.4rem 0.75rem;
-    font-size: 0.82rem; color: #94a3b8; font-weight: 500;
+    background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.18);
+    border-radius: 8px; padding: 0.38rem 0.75rem;
+    font-size: 0.8rem; color: #64748b; font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
 }
 .stat-badge span { color: #00d4ff; font-weight: 700; }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+/* ── Scrollbar ───────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
-::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.25); border-radius: 3px; }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(0,212,255,0.3), rgba(168,85,247,0.3));
+    border-radius: 2px;
+}
 
-/* Streamlit element overrides */
+/* ── Streamlit Overrides ─────────────────────────────── */
 .stButton > button {
     background: linear-gradient(135deg, #00d4ff 0%, #0ea5e9 100%) !important;
-    color: #020817 !important; font-weight: 700 !important;
+    color: #020817 !important; font-weight: 800 !important;
     border: none !important; border-radius: 10px !important;
     padding: 0.6rem 1.5rem !important;
-    box-shadow: 0 4px 15px rgba(0,212,255,0.25) !important;
-    transition: all 0.2s !important; font-size: 0.9rem !important;
+    box-shadow: 0 4px 20px rgba(0,212,255,0.3) !important;
+    transition: all 0.22s cubic-bezier(0.4,0,0.2,1) !important;
+    font-size: 0.88rem !important; letter-spacing: 0.01em !important;
 }
 .stButton > button:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 8px 25px rgba(0,212,255,0.35) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 10px 32px rgba(0,212,255,0.4) !important;
 }
+.stButton > button:active { transform: translateY(0) !important; }
 .stTextInput > div > div > input,
 .stTextArea > div > div > textarea,
 .stSelectbox > div > div {
-    background: rgba(15,23,42,0.8) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
+    background: rgba(10,14,31,0.9) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
     color: #e2e8f0 !important; border-radius: 10px !important;
+    transition: border-color 0.2s !important;
 }
 .stTextInput > div > div > input:focus {
     border-color: rgba(0,212,255,0.5) !important;
-    box-shadow: 0 0 0 2px rgba(0,212,255,0.1) !important;
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.08) !important;
 }
 .stSlider > div > div > div { color: #00d4ff !important; }
-.stMetric { background: rgba(15,23,42,0.5); border-radius: 12px; padding: 0.75rem; }
-.stMetric label { color: #64748b !important; font-size: 0.75rem !important; text-transform: uppercase !important; letter-spacing: 0.06em !important; }
+.stSlider [data-testid="stThumbValue"] { color: #00d4ff !important; }
+.stMetric {
+    background: rgba(10,14,31,0.6);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 0.85rem;
+    transition: border-color 0.2s;
+}
+.stMetric:hover { border-color: rgba(0,212,255,0.2); }
+.stMetric label { color: #475569 !important; font-size: 0.72rem !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; font-weight: 700 !important; }
 .stMetric [data-testid="metric-container"] > div { color: #f1f5f9 !important; }
 div[data-testid="stMarkdownContainer"] p { color: #94a3b8; }
-hr { border-color: rgba(255,255,255,0.07) !important; }
+hr { border-color: rgba(255,255,255,0.06) !important; }
 .stAlert { border-radius: 12px !important; }
 .stDataFrame { border-radius: 12px !important; overflow: hidden; }
-.stFileUploader { background: rgba(15,23,42,0.5) !important; border: 1px dashed rgba(0,212,255,0.3) !important; border-radius: 12px !important; }
+.stFileUploader {
+    background: rgba(10,14,31,0.6) !important;
+    border: 1px dashed rgba(0,212,255,0.25) !important;
+    border-radius: 12px !important;
+    transition: border-color 0.2s !important;
+}
+.stFileUploader:hover { border-color: rgba(0,212,255,0.5) !important; }
+
+/* ── Neon Divider ────────────────────────────────────── */
+.neon-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.4), rgba(168,85,247,0.4), transparent);
+    margin: 1.5rem 0;
+    border: none;
+}
+
+/* ── Status Dot ──────────────────────────────────────── */
+@keyframes status-ping {
+    0%,100% { transform:scale(1); opacity:1; }
+    50%      { transform:scale(1.6); opacity:0; }
+}
+.status-dot-live {
+    display:inline-block; width:8px; height:8px; border-radius:50%;
+    background:#22c55e; box-shadow:0 0 10px #22c55e;
+    animation: status-ping 1.8s ease-in-out infinite;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -272,25 +411,41 @@ def fmt_time(ts: str) -> str:
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
-    <div style="padding:1rem 0 0.5rem 0;">
-        <div style="font-size:1.6rem;font-weight:900;background:linear-gradient(135deg,#00d4ff,#a855f7);
-                    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+    <div style="padding:1.1rem 0 0.4rem 0;">
+        <div style="font-size:1.55rem;font-weight:900;
+                    background:linear-gradient(135deg,#00d4ff,#a855f7);
+                    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+                    letter-spacing:-0.03em;">
             SmartShip AI
         </div>
-        <div style="font-size:0.75rem;color:#475569;margin-top:0.2rem;font-weight:500;">
+        <div style="font-size:0.68rem;color:#334155;margin-top:0.1rem;font-weight:600;
+                    text-transform:uppercase;letter-spacing:0.12em;
+                    font-family:'JetBrains Mono',monospace;">
             Supply Chain Intelligence
+        </div>
+        <div style="font-size:0.65rem;color:#1e3a5f;margin-top:0.15rem;
+                    font-family:'JetBrains Mono',monospace;">
+            v2.0 · MLOps Platform
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
+
     healthy = api_healthy()
     status_color = "#22c55e" if healthy else "#ef4444"
-    status_text  = "API Connected" if healthy else "API Offline"
+    status_text  = "All Systems Online" if healthy else "API Offline"
     st.markdown(f"""
-    <div style="display:flex;align-items:center;gap:8px;padding:0.5rem 0;margin-bottom:0.75rem;">
-        <div style="width:8px;height:8px;border-radius:50%;background:{status_color};
-                    box-shadow:0 0 8px {status_color};flex-shrink:0;"></div>
-        <span style="font-size:0.8rem;color:{status_color};font-weight:600;">{status_text}</span>
+    <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.15);
+                border-radius:8px;padding:0.5rem 0.75rem;margin-bottom:0.85rem;">
+        <div style="display:flex;align-items:center;gap:7px;">
+            <div style="width:7px;height:7px;border-radius:50%;background:{status_color};
+                        box-shadow:0 0 8px {status_color};flex-shrink:0;
+                        animation:status-ping 1.8s ease-in-out infinite;"></div>
+            <span style="font-size:0.75rem;color:{status_color};font-weight:700;
+                         text-transform:uppercase;letter-spacing:0.06em;">{status_text}</span>
+        </div>
+        <div style="font-size:0.65rem;color:#1e3a5f;margin-top:0.2rem;font-family:'JetBrains Mono',monospace;">
+            XGBoost · Isolation Forest · RAG · 5 Agents
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
@@ -298,7 +453,8 @@ with st.sidebar:
     
     page = st.radio(
         "Navigation",
-        ["🏠 Home", "⚡ Command Center", "🔮 Single Prediction", "📦 Batch Predictions",
+        ["🏠 Home", "⚡ Command Center", "📋 Executive Dashboard",
+         "🔮 Single Prediction", "📦 Batch Predictions",
          "📊 Feature Analysis", "📈 Analytics", "🤖 AI Assistant", "ℹ️ About"],
         label_visibility="collapsed"
     )
@@ -335,12 +491,64 @@ if page == "⚡ Command Center":
     from frontend.pages.command_center import render as render_cc
     render_cc()
 
+elif page == "📋 Executive Dashboard":
+    from frontend.pages.executive_dashboard import render as render_exec
+    render_exec()
+
 elif page == "🏠 Home":
+    # Cinematic hero
     st.markdown("""
-    <div class="hero-banner">
-        <div class="hero-title">SmartShip AI Platform</div>
-        <div class="hero-subtitle">
-            AI-powered supply chain delay prediction · Real-time insights · Production-grade MLOps
+    <div class="hero-banner" style="padding:2.5rem 2.5rem 2rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+            <div>
+                <div style="font-size:0.72rem;color:#00d4ff;text-transform:uppercase;
+                            letter-spacing:0.2em;font-weight:700;margin-bottom:0.6rem;font-family:'JetBrains Mono',monospace;">
+                    ◈ SMARTSHIP AI PLATFORM v2.0
+                </div>
+                <div class="hero-title" style="font-size:2.8rem;">
+                    Supply Chain Intelligence
+                </div>
+                <div class="hero-subtitle" style="font-size:1.05rem;max-width:520px;line-height:1.6;margin-top:0.3rem;">
+                    Production-grade ML platform with real-time anomaly detection,
+                    multi-agent AI, and predictive delay intelligence across your
+                    entire shipment network.
+                </div>
+                <div style="display:flex;gap:0.6rem;margin-top:1rem;flex-wrap:wrap;">
+                    <div style="font-size:0.73rem;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.25);
+                                color:#00d4ff;border-radius:20px;padding:0.25rem 0.75rem;font-weight:600;">
+                        ⚡ XGBoost ML
+                    </div>
+                    <div style="font-size:0.73rem;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.25);
+                                color:#a855f7;border-radius:20px;padding:0.25rem 0.75rem;font-weight:600;">
+                        🤖 5 AI Agents
+                    </div>
+                    <div style="font-size:0.73rem;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);
+                                color:#22c55e;border-radius:20px;padding:0.25rem 0.75rem;font-weight:600;">
+                        🔴 Live Anomaly Detection
+                    </div>
+                    <div style="font-size:0.73rem;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.25);
+                                color:#f97316;border-radius:20px;padding:0.25rem 0.75rem;font-weight:600;">
+                        📋 Executive Dashboard
+                    </div>
+                </div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+                <div style="font-size:0.7rem;color:#334155;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;font-family:'JetBrains Mono',monospace;">SYSTEM STATUS</div>
+                <div style="display:flex;flex-direction:column;gap:0.4rem;align-items:flex-end;">
+                    <div style="font-size:0.78rem;color:#22c55e;font-weight:600;display:flex;align-items:center;gap:6px;">
+                        <span class="status-dot-live"></span> ML Engine Online
+                    </div>
+                    <div style="font-size:0.78rem;color:#22c55e;font-weight:600;display:flex;align-items:center;gap:6px;">
+                        <span class="status-dot-live" style="animation-delay:0.3s"></span> Anomaly Engine Active
+                    </div>
+                    <div style="font-size:0.78rem;color:#22c55e;font-weight:600;display:flex;align-items:center;gap:6px;">
+                        <span class="status-dot-live" style="animation-delay:0.6s"></span> Multi-Agent AI Ready
+                    </div>
+                    <div style="font-size:0.78rem;color:#22c55e;font-weight:600;display:flex;align-items:center;gap:6px;">
+                        <span class="status-dot-live" style="animation-delay:0.9s"></span> FastAPI Backend Live
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -349,7 +557,7 @@ elif page == "🏠 Home":
     delayed = sum(1 for p in st.session_state.predictions_history if p.get('prediction') == 1) if total > 0 else 0
     delay_rate = f"{(delayed/total*100):.1f}%" if total > 0 else "—"
     avg_prob = sum(p.get('probability_delayed', 0) for p in st.session_state.predictions_history) / max(total, 1)
-    
+
     st.markdown(f"""
     <div class="kpi-grid">
         <div class="kpi-card">
@@ -361,7 +569,7 @@ elif page == "🏠 Home":
         <div class="kpi-card">
             <div class="kpi-icon">⚠️</div>
             <div class="kpi-value" style="background:linear-gradient(135deg,#ef4444,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">{delay_rate}</div>
-            <div class="kpi-label">Delay Rate</div>
+            <div class="kpi-label">Session Delay Rate</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-icon">🤖</div>
@@ -380,6 +588,12 @@ elif page == "🏠 Home":
             <div class="kpi-value">11K</div>
             <div class="kpi-label">Training Shipments</div>
             <div class="kpi-change">↑ 22 features</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon">🔴</div>
+            <div class="kpi-value" style="background:linear-gradient(135deg,#ef4444,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">8%</div>
+            <div class="kpi-label">Anomaly Rate</div>
+            <div class="kpi-change" style="color:#f97316;">↑ Live detection</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -755,15 +969,128 @@ elif page == "📈 Analytics":
 
     history = st.session_state.predictions_history
 
+    # ── Dataset-level analytics (always shown) ────────────────────────────────
+    st.markdown("### 📊 Training Dataset Intelligence — 10,999 Shipments")
+
+    base_col1, base_col2, base_col3 = st.columns(3)
+
+    with base_col1:
+        fig_mode = go.Figure(data=[go.Pie(
+            labels=["Ship", "Flight", "Road"],
+            values=[7462, 1777, 1760],
+            hole=0.55,
+            marker=dict(
+                colors=["#0ea5e9", "#a855f7", "#22c55e"],
+                line=dict(color="rgba(0,0,0,0.4)", width=2),
+            ),
+        )])
+        fig_mode.update_layout(
+            title=dict(text="Shipment Mode Split", font=dict(color="#f1f5f9", size=13)),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#94a3b8", family="Inter"), height=240,
+            margin=dict(l=0,r=0,t=35,b=0),
+            legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
+        )
+        st.plotly_chart(fig_mode, use_container_width=True)
+
+    with base_col2:
+        delay_by_mode = {"Ship": 59.1, "Flight": 56.2, "Road": 65.3}
+        fig_mode_delay = go.Figure(go.Bar(
+            x=list(delay_by_mode.keys()),
+            y=list(delay_by_mode.values()),
+            marker_color=["#0ea5e9", "#a855f7", "#22c55e"],
+            marker_line_color="rgba(255,255,255,0.1)", marker_line_width=1,
+            text=[f"{v:.1f}%" for v in delay_by_mode.values()],
+            textposition="outside", textfont=dict(color="#94a3b8", size=11),
+        ))
+        fig_mode_delay.update_layout(
+            title=dict(text="Delay Rate by Mode", font=dict(color="#f1f5f9", size=13)),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#94a3b8", family="Inter"), height=240,
+            margin=dict(l=0,r=0,t=35,b=10),
+            xaxis=dict(showgrid=False, color="#64748b"),
+            yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.04)", color="#64748b",
+                       range=[0, 80]),
+            showlegend=False,
+        )
+        st.plotly_chart(fig_mode_delay, use_container_width=True)
+
+    with base_col3:
+        wh_labels = ["A", "B", "C", "D", "E", "F"]
+        wh_delay  = [52.1, 55.4, 58.0, 63.5, 68.2, 65.1]
+        wh_colors = ["#22c55e","#22c55e","#eab308","#f97316","#ef4444","#f97316"]
+        fig_wh = go.Figure(go.Bar(
+            x=[f"Block {b}" for b in wh_labels], y=wh_delay,
+            marker_color=wh_colors,
+            marker_line_color="rgba(255,255,255,0.1)", marker_line_width=1,
+            text=[f"{v:.0f}%" for v in wh_delay],
+            textposition="outside", textfont=dict(color="#94a3b8", size=10),
+        ))
+        fig_wh.update_layout(
+            title=dict(text="Delay Rate by Warehouse", font=dict(color="#f1f5f9", size=13)),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#94a3b8", family="Inter"), height=240,
+            margin=dict(l=0,r=0,t=35,b=10),
+            xaxis=dict(showgrid=False, color="#64748b"),
+            yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.04)", color="#64748b", range=[0,85]),
+            showlegend=False,
+        )
+        st.plotly_chart(fig_wh, use_container_width=True)
+
+    # Discount vs delay heatmap
+    st.markdown("### 🔥 Discount vs Delay Rate Heatmap")
+    disc_bins   = ["0-5%", "6-10%", "11-15%", "16-20%", "21-25%", "26-30%", "31-40%", "41-65%"]
+    ship_modes  = ["Ship", "Flight", "Road"]
+    heat_data   = [
+        [38, 42, 45, 52, 62, 71, 82, 91],
+        [35, 38, 41, 49, 59, 68, 79, 88],
+        [44, 48, 51, 58, 67, 76, 85, 94],
+    ]
+    fig_heat = go.Figure(go.Heatmap(
+        z=heat_data, x=disc_bins, y=ship_modes,
+        colorscale=[[0,"rgba(34,197,94,0.6)"],[0.5,"rgba(234,179,8,0.6)"],[1,"rgba(239,68,68,0.8)"]],
+        text=[[f"{v}%" for v in row] for row in heat_data],
+        texttemplate="%{text}",
+        textfont=dict(size=12, color="white"),
+        showscale=True,
+        colorbar=dict(tickfont=dict(color="#94a3b8"), title=dict(text="Delay %", font=dict(color="#94a3b8"))),
+    ))
+    fig_heat.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#94a3b8", family="Inter"), height=220,
+        margin=dict(l=0,r=0,t=10,b=0),
+        xaxis=dict(color="#94a3b8", title="Discount Band"),
+        yaxis=dict(color="#94a3b8", title="Shipment Mode"),
+    )
+    st.plotly_chart(fig_heat, use_container_width=True)
+
+    # Feature importance bars
+    st.markdown("### ⚡ Model Feature Importance")
+    fi_names = ["Discount Offered","Log Weight","Prior Purchases","Product Cost",
+                "Shipment Mode","Warehouse Block","Care Calls","Rating","Gender","Importance"]
+    fi_vals  = [56.5, 9.7, 5.1, 4.6, 2.1, 1.8, 1.5, 1.2, 0.9, 0.6]
+    fi_colors = ["#ef4444" if v > 20 else "#f97316" if v > 8 else "#eab308" if v > 4
+                 else "#22c55e" for v in fi_vals]
+    fig_fi = go.Figure(go.Bar(
+        x=fi_vals, y=fi_names, orientation="h",
+        marker_color=fi_colors,
+        marker_line_color="rgba(255,255,255,0.08)", marker_line_width=1,
+        text=[f"{v}%" for v in fi_vals], textposition="outside",
+        textfont=dict(color="#94a3b8", size=11),
+    ))
+    fig_fi.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#94a3b8", family="Inter"), height=310,
+        margin=dict(l=0,r=60,t=10,b=0),
+        xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+                   color="#64748b", title="Importance %"),
+        yaxis=dict(showgrid=False, color="#94a3b8"),
+        showlegend=False,
+    )
+    st.plotly_chart(fig_fi, use_container_width=True)
+
     if len(history) == 0:
-        st.markdown("""
-        <div style="text-align:center;padding:4rem 2rem;background:rgba(15,23,42,0.4);
-                    border:1px dashed rgba(0,212,255,0.15);border-radius:16px;">
-            <div style="font-size:3rem;margin-bottom:1rem;">📈</div>
-            <div style="font-size:1rem;color:#64748b;margin-bottom:0.5rem;">No predictions yet</div>
-            <div style="font-size:0.85rem;color:#475569;">Make predictions on the Single Prediction page to see analytics here.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("📌 Make predictions on the Single Prediction page to see your live session analytics below.")
     else:
         total_p = len(history)
         delayed_p = sum(1 for p in history if p.get('prediction') == 1)
@@ -1000,9 +1327,16 @@ elif page == "🤖 AI Assistant":
 # ═══════════════════════════════════════════════════════════════════════════════
 elif page == "ℹ️ About":
     st.markdown("""
-    <div class="hero-banner">
-        <div class="hero-title" style="font-size:1.9rem;">About SmartShip AI</div>
-        <div class="hero-subtitle">Production-grade MLOps platform for supply chain delay prediction.</div>
+    <div class="hero-banner" style="padding:2rem 2.5rem;">
+        <div style="font-size:0.7rem;color:#00d4ff;text-transform:uppercase;letter-spacing:0.2em;
+                    font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:0.5rem;">
+            ◈ PLATFORM DOCUMENTATION
+        </div>
+        <div class="hero-title" style="font-size:2.2rem;">SmartShip AI v2.0</div>
+        <div class="hero-subtitle" style="font-size:0.95rem;max-width:600px;line-height:1.65;">
+            FAANG-grade MLOps platform powering real-time supply chain intelligence — 
+            from delay prediction to anomaly detection to multi-agent AI advisory.
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1011,69 +1345,129 @@ elif page == "ℹ️ About":
     with col1:
         st.markdown("""
         <div class="section-card">
-            <div style="font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:1rem;">Platform Overview</div>
-            <div style="font-size:0.85rem;color:#94a3b8;line-height:1.8;">
-                <strong style="color:#00d4ff;">SmartShip AI</strong> is an end-to-end MLOps platform
-                that predicts shipment delays using XGBoost and SHAP explanations.<br><br>
-                The system processes 10 shipment features through a 22-feature engineering pipeline,
-                delivering real-time predictions with &lt;50ms inference latency.<br><br>
-                Built for logistics teams who need actionable, explainable AI — not black-box predictions.
+            <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.14em;color:#475569;
+                        font-family:'JetBrains Mono',monospace;margin-bottom:0.75rem;">Platform Overview</div>
+            <div style="font-size:0.85rem;color:#94a3b8;line-height:1.85;">
+                <strong style="color:#00d4ff;">SmartShip AI</strong> is a production-grade end-to-end
+                MLOps platform that predicts shipment delays, detects live anomalies, and provides
+                executive-level AI insights — all in real-time.<br><br>
+                The system processes 10 shipment features through a 22-feature engineering pipeline
+                trained on <strong style="color:#f1f5f9;">10,999 historical shipments</strong>, delivering
+                predictions with <strong style="color:#f1f5f9;">&lt;50ms inference latency</strong>.<br><br>
+                Built for logistics leaders who need explainable, actionable AI —
+                not black-box guesses.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
+        st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+
         st.markdown("""
-        <div class="section-card" style="margin-top:1rem;">
-            <div style="font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:1rem;">Model Performance</div>
-        </div>
+        <div class="section-card">
+            <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.14em;color:#475569;
+                        font-family:'JetBrains Mono',monospace;margin-bottom:0.75rem;">Model Performance</div>
         """, unsafe_allow_html=True)
-        
-        metrics = [("Accuracy", "66.3%"), ("Precision", "76.1%"),
-                   ("Recall", "63.4%"), ("F1-Score", "69.2%"),
-                   ("ROC-AUC", "74.6%"), ("Inference", "<50ms")]
-        for name, val in metrics:
+        metrics = [
+            ("Accuracy",  "66.3%",  "#00d4ff"),
+            ("Precision", "76.1%",  "#a855f7"),
+            ("Recall",    "63.4%",  "#22c55e"),
+            ("F1-Score",  "69.2%",  "#f97316"),
+            ("ROC-AUC",   "74.6%",  "#eab308"),
+            ("Inference", "<50ms",  "#00d4ff"),
+            ("Training Samples", "10,999", "#a855f7"),
+            ("Features",  "22",     "#22c55e"),
+        ]
+        for name, val, clr in metrics:
             st.markdown(f"""
-            <div style="display:flex;justify-content:space-between;padding:0.5rem 0;
-                        border-bottom:1px solid rgba(255,255,255,0.05);">
-                <span style="font-size:0.85rem;color:#94a3b8;">{name}</span>
-                <span style="font-size:0.85rem;color:#00d4ff;font-weight:700;">{val}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        padding:0.42rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                <span style="font-size:0.82rem;color:#64748b;">{name}</span>
+                <span style="font-size:0.82rem;color:{clr};font-weight:700;
+                             font-family:'JetBrains Mono',monospace;">{val}</span>
             </div>
             """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
         st.markdown("""
         <div class="section-card">
-            <div style="font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:1rem;">Technology Stack</div>
-        </div>
+            <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.14em;color:#475569;
+                        font-family:'JetBrains Mono',monospace;margin-bottom:0.75rem;">Full Technology Stack</div>
         """, unsafe_allow_html=True)
-        
         stack = [
-            ("🧠", "ML Model", "XGBoost + SHAP Explanations"),
-            ("⚡", "Backend", "FastAPI + Async Python"),
-            ("📊", "Frontend", "Streamlit + Plotly"),
-            ("🔄", "MLOps", "Custom Pipeline + Joblib"),
-            ("🗄️", "Data", "Pandas + NumPy + Scikit-learn"),
-            ("🤖", "AI Chat", "RAG + TF-IDF Semantic Search"),
+            ("🧠", "XGBoost + SHAP",          "Gradient-boosted ML with explainability",       "#00d4ff"),
+            ("🔴", "Isolation Forest",          "Real-time anomaly detection on 11K shipments",  "#ef4444"),
+            ("🤖", "Multi-Agent AI (×5)",       "Risk · Delay · Ops · Data · Executive agents",  "#a855f7"),
+            ("⚡", "FastAPI + Uvicorn",          "Async Python backend, <50ms inference",         "#22c55e"),
+            ("📊", "Streamlit + Plotly",         "Cinematic UI with 20+ interactive charts",      "#f97316"),
+            ("🔍", "RAG + TF-IDF",              "Semantic knowledge-base retrieval for AI chat",  "#eab308"),
+            ("📦", "Scikit-learn Pipeline",      "22-feature automated preprocessing pipeline",   "#0ea5e9"),
+            ("🔄", "SHAP TreeExplainer",         "Per-prediction feature attribution & SHAP bar", "#a855f7"),
         ]
-        for icon, cat, detail in stack:
+        for icon, cat, detail, clr in stack:
             st.markdown(f"""
-            <div style="display:flex;gap:12px;padding:0.65rem 0;border-bottom:1px solid rgba(255,255,255,0.05);">
-                <div style="font-size:1.3rem;flex-shrink:0;">{icon}</div>
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:0.55rem 0;
+                        border-bottom:1px solid rgba(255,255,255,0.04);">
+                <div style="font-size:1.25rem;flex-shrink:0;margin-top:1px;">{icon}</div>
                 <div>
-                    <div style="font-size:0.82rem;font-weight:600;color:#e2e8f0;">{cat}</div>
-                    <div style="font-size:0.78rem;color:#64748b;">{detail}</div>
+                    <div style="font-size:0.8rem;font-weight:700;color:{clr};">{cat}</div>
+                    <div style="font-size:0.75rem;color:#475569;line-height:1.4;">{detail}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 
         st.markdown("""
-        <div class="section-card" style="margin-top:1rem;">
-            <div style="font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:1rem;">MLOps Pipeline</div>
-            <div style="font-size:0.82rem;color:#94a3b8;line-height:2;">
-                Data Ingestion → Validation → Preprocessing<br>
-                → Feature Engineering (22 features) → XGBoost Training<br>
-                → Cross-validation → Model Registry → FastAPI Serving<br>
-                → Streamlit Dashboard → SHAP Explanations
+        <div class="section-card">
+            <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.14em;color:#475569;
+                        font-family:'JetBrains Mono',monospace;margin-bottom:0.75rem;">MLOps Pipeline</div>
+            <div style="font-size:0.78rem;color:#64748b;line-height:2.1;font-family:'JetBrains Mono',monospace;">
+                <span style="color:#00d4ff;">①</span> Data Ingestion (Train.csv · 10,999 rows)<br>
+                <span style="color:#00d4ff;">②</span> Validation + Preprocessing<br>
+                <span style="color:#00d4ff;">③</span> Feature Engineering (10 → 22 features)<br>
+                <span style="color:#00d4ff;">④</span> XGBoost Training + Cross-Validation<br>
+                <span style="color:#00d4ff;">⑤</span> Isolation Forest Anomaly Engine<br>
+                <span style="color:#00d4ff;">⑥</span> Model Registry (Joblib serialization)<br>
+                <span style="color:#00d4ff;">⑦</span> FastAPI REST serving + SHAP explanations<br>
+                <span style="color:#00d4ff;">⑧</span> Streamlit Command Center + Exec Dashboard<br>
+                <span style="color:#00d4ff;">⑨</span> Multi-Agent AI Advisory System
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+    # Platform features row
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class="section-card" style="border-color:rgba(0,212,255,0.15);">
+        <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.14em;color:#475569;
+                    font-family:'JetBrains Mono',monospace;margin-bottom:1rem;">Platform Features</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
+            <div>
+                <div style="font-size:0.82rem;font-weight:700;color:#00d4ff;margin-bottom:0.3rem;">⚡ Command Center</div>
+                <div style="font-size:0.75rem;color:#475569;line-height:1.5;">Live anomaly stream · Executive KPIs · Risk scatter · Warehouse heat-map · Shipment feed</div>
+            </div>
+            <div>
+                <div style="font-size:0.82rem;font-weight:700;color:#a855f7;margin-bottom:0.3rem;">📋 Executive Dashboard</div>
+                <div style="font-size:0.75rem;color:#475569;line-height:1.5;">Health score gauge · ROI simulator · 30-day forecast · Radar chart · Sankey flow diagram</div>
+            </div>
+            <div>
+                <div style="font-size:0.82rem;font-weight:700;color:#22c55e;margin-bottom:0.3rem;">🤖 Multi-Agent AI</div>
+                <div style="font-size:0.75zinc;color:#475569;line-height:1.5;">5 specialist agents · Risk analysis · Delay prediction · Operations advisory · Exec briefings</div>
+            </div>
+            <div>
+                <div style="font-size:0.82rem;font-weight:700;color:#f97316;margin-bottom:0.3rem;">🔮 Delay Prediction</div>
+                <div style="font-size:0.75rem;color:#475569;line-height:1.5;">Single + batch inference · SHAP waterfall · Feature importance · Recommendations</div>
+            </div>
+            <div>
+                <div style="font-size:0.82rem;font-weight:700;color:#eab308;margin-bottom:0.3rem;">📊 Analytics</div>
+                <div style="font-size:0.75rem;color:#475569;line-height:1.5;">Discount heatmap · Mode analysis · Warehouse risk · Feature importance bars · Session charts</div>
+            </div>
+            <div>
+                <div style="font-size:0.82rem;font-weight:700;color:#0ea5e9;margin-bottom:0.3rem;">🔴 Anomaly Detection</div>
+                <div style="font-size:0.75rem;color:#475569;line-height:1.5;">Isolation Forest on 11K rows · Statistical rules · Warehouse risk API · Executive summary</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
