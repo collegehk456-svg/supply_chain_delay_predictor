@@ -20,11 +20,11 @@ class SHAPExplainer:
         self.model = model
         self.feature_names = feature_names
         self.explainer = shap.TreeExplainer(model)
-        # Use a sample of the background data for SHAP (e.g., first 100 rows)
-        # X_background should be the preprocessed (scaled and engineered) training data
-        self.background = X_background.head(min(100, len(X_background))) if isinstance(X_background, pd.DataFrame) else X_background[:min(100, len(X_background))]
-        # SHAP's TreeExplainer can sometimes handle background data directly, but for consistency, we'll use a sample.
-        # self.explainer.expected_value is calculated from the background data.
+        # Use first 100 rows as background
+        if hasattr(X_background, 'iloc'):
+            self.background = X_background.iloc[:min(100, len(X_background))]
+        else:
+            self.background = X_background[:min(100, len(X_background))]
     
     def explain_single(self, X_sample: np.ndarray) -> Dict:
         """Explain prediction for single sample.

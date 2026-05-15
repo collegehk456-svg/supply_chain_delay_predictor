@@ -50,18 +50,19 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up application...")
     try:
-        model_path = config.get('model.path')
-        predictor = ModelPredictor(model_path)
-        logger.info("Model loaded successfully")
+        # Load the complete prediction pipeline (MLOps style)
+        # This loads the preprocessor, engineer, and model together
+        predictor = ModelPredictor.load("models/production/full_pipeline.pkl")
+        logger.info("Complete ModelPredictor pipeline loaded successfully")
         
         # Initialize SHAP explainer
         try:
             import pandas as pd
             model = joblib.load('models/production/model.pkl')
             
-            # Try to load training data for SHAP background
+            # Load processed training data for SHAP background
             try:
-                X_train = pd.read_csv('data/processed/X_train.csv')
+                X_train = pd.read_csv('models/production/X_train_processed.csv')
             except:
                 # Fallback: create dummy background with correct dimensions
                 X_train = pd.DataFrame(np.random.randn(100, 10))
@@ -179,12 +180,8 @@ async def predict(request: ShipmentInput):
         raise HTTPException(status_code=503, detail="Model not loaded")
     
     try:
-        # Prepare data
-        import pandas as pd
-        X = pd.DataFrame([request.dict()])
-        
-        # Make prediction
-        result = predictor.predict_single(request.dict())
+        # Use the predictor pipeline to handle encoding and feature engineering automatically
+        result = predictor.predict_single(request.model_dump())
         
         # Log prediction
         prediction_count += 1
@@ -225,7 +222,7 @@ async def predict_batch(request: BatchPredictionRequest):
         start_time = time.time()
         
         # Prepare data
-        X = pd.DataFrame([s.dict() for s in request.shipments])
+        X = pd.DataFrame([s.model_dump() for s in request.shipments])
         
         # Make predictions
         results = predictor.predict_batch(X)
@@ -273,7 +270,7 @@ async def predict_with_explanation(request: ShipmentInput):
     
     try:
         # Get prediction
-        result = predictor.predict_single(request.dict())
+        result = predictor.predict_single(request.model_dump())
         
         # Generate explanation
         explanation_text = _generate_explanation(request, result)
@@ -322,29 +319,15 @@ async def explain_prediction(request: ShipmentInput):
         raise HTTPException(status_code=503, detail="SHAP explainer not initialized")
     
     try:
-        # Convert input to feature array in correct order
-        feature_array = np.array([[
-            _encode_feature(request.warehouse_block, 'warehouse_block'),
-            _encode_feature(request.mode_of_shipment, 'mode'),
-            request.customer_care_calls,
-            request.customer_rating,
-            request.cost_of_the_product,
-            request.prior_purchases,
-            _encode_feature(request.product_importance, 'importance'),
-            _encode_feature(request.gender, 'gender'),
-            request.discount_offered,
-            request.weight_in_gms
-        ]])
-        
-        # Scale features
-        scaler = joblib.load('models/production/scaler.pkl')
-        X_scaled = scaler.transform(feature_array)
+        # Transform input using the same pipeline used in training
+        raw_df = pd.DataFrame([request.model_dump()])
+        X_transformed = predictor._transform_data(raw_df)
         
         # Get prediction
-        prediction_prob = predictor.model.predict_proba(X_scaled)[0][1]
+        prediction_prob = predictor.model.predict_proba(X_transformed.values)[0][1]
         
         # Get SHAP explanation
-        explanation = explainer.explain_single(X_scaled[0])
+        explanation = explainer.explain_single(X_transformed.values[0])
         
         return {
             "probability_delayed": float(prediction_prob),
@@ -380,40 +363,28 @@ async def smart_predict(request: ShipmentInput):
         raise HTTPException(status_code=503, detail="Recommendation service not initialized")
     
     try:
-        # Convert input to feature array
-        feature_array = np.array([[
-            _encode_feature(request.warehouse_block, 'warehouse_block'),
-            _encode_feature(request.mode_of_shipment, 'mode'),
-            request.customer_care_calls,
-            request.customer_rating,
-            request.cost_of_the_product,
-            request.prior_purchases,
-            _encode_feature(request.product_importance, 'importance'),
-            _encode_feature(request.gender, 'gender'),
-            request.discount_offered,
-            request.weight_in_gms
-        ]])
+        # Get robust prediction from the unified pipeline
+        result = predictor.predict_single(request.model_dump())
+        prediction_prob = result['probability_delayed']
+        prediction = result['prediction']
+        confidence = result['confidence']
         
-        # Scale features
-        scaler = joblib.load('models/production/scaler.pkl')
-        X_scaled = scaler.transform(feature_array)
-        
-        # Get prediction
-        prediction_prob = float(predictor.model.predict_proba(X_scaled)[0][1])
-        prediction = int(1 if prediction_prob > 0.5 else 0)
+        # Get transformed data for SHAP
+        raw_df = pd.DataFrame([request.model_dump()])
+        X_transformed = predictor._transform_data(raw_df)
         
         # Get SHAP explanation
         explanation = None
         top_factors = []
         top_values = []
         if explainer is not None:
-            explanation = explainer.explain_single(X_scaled[0])
+            explanation = explainer.explain_single(X_transformed.values[0])
             top_factors = explanation['top_3_factors']
             top_values = [float(v) for v in explanation['top_3_values']]
         
         # Get recommendations
         recommendations = recommendation_service.generate(
-            shipment_data=request.dict(),
+            shipment_data=request.model_dump(),
             predicted_probability=prediction_prob,
             top_factors=top_factors
         )
@@ -421,7 +392,7 @@ async def smart_predict(request: ShipmentInput):
         return {
             "prediction": prediction,
             "probability_delayed": prediction_prob,
-            "confidence": prediction_prob if prediction == 1 else (1.0 - prediction_prob),
+            "confidence": confidence,
             "top_factors": top_factors,
             "shap_contributions": top_values,
             "recommendations": recommendations['recommendations'],
@@ -437,26 +408,6 @@ async def smart_predict(request: ShipmentInput):
     except Exception as e:
         logger.error(f"Smart prediction error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# Helper function to encode categorical features
-def _encode_feature(value, feature_type):
-    """Encode categorical features."""
-    try:
-        encoders = joblib.load('models/production/label_encoders.pkl')
-        if feature_type == 'warehouse_block':
-            return int(encoders['Warehouse_block'].transform([value])[0])
-        elif feature_type == 'mode':
-            return int(encoders['Mode_of_Shipment'].transform([value])[0])
-        elif feature_type == 'importance':
-            return int(encoders['Product_importance'].transform([value])[0])
-        elif feature_type == 'gender':
-            return int(encoders['Gender'].transform([value])[0])
-    except Exception as e:
-        logger.warning(f"Feature encoding error for {feature_type}: {e}")
-        return 0
-    return 0
-
 
 # Helper functions for explanations
 def _generate_explanation(request: ShipmentInput, prediction: dict) -> str:

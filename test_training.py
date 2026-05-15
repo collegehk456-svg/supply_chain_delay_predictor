@@ -3,6 +3,7 @@
 
 import sys
 import os
+import joblib
 from pathlib import Path
 
 # Add project to path
@@ -13,6 +14,9 @@ print("🔍 MODEL TRAINING & PROJECT VALIDATION")
 print("=" * 60)
 
 # Step 1: Check imports
+# Set default encoding for stdout/stderr to UTF-8 to prevent UnicodeEncodeError on some systems
+os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+
 print("\n[1/7] Checking imports...")
 try:
     import pandas as pd

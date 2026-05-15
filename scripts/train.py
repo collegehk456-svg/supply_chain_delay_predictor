@@ -15,6 +15,10 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 # Add project root to path
+import joblib
+
+# Set default encoding for stdout/stderr to UTF-8 to prevent UnicodeEncodeError on some systems
+os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import ML pipeline components
@@ -24,6 +28,7 @@ from ml_pipeline.features.engineer import FeatureEngineer
 from ml_pipeline.models.trainer import ModelTrainer
 from ml_pipeline.models.evaluator import ModelEvaluator
 
+from backend.config import get_config
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -45,17 +50,24 @@ def load_and_prepare_data(data_path: str, config: dict) -> tuple:
     """
     logger.info("Loading data...")
     
-    # Load data
-    loader = DataLoader(data_dir="data/")
-    
-    # For demo, create sample data if file doesn't exist
+    # Data Ingestion
+    logger.info(f"Data Ingestion: Loading raw data from {data_path}")
     try:
-        df = loader.load_raw_data("train.csv")
+        df = pd.read_csv(data_path)
     except FileNotFoundError:
-        logger.warning("Train data not found, creating sample data for demonstration")
-        df = create_sample_data()
+        logger.error(f"Data file not found at {data_path}. Please ensure it exists.")
+        raise
     
     logger.info(f"Loaded data shape: {df.shape}")
+
+    # Normalize column names (replace dots with underscores for consistency)
+    df.columns = [col.replace('.', '_').replace('/', '_') for col in df.columns]
+
+    # Data Processing
+    logger.info("Data Processing: Initializing preprocessor and feature engineer.")
+    preprocessor = DataPreprocessor()
+    engineer = FeatureEngineer()
+
     
     # Get feature names
     numerical_cols = config['features']['numerical']
@@ -63,10 +75,9 @@ def load_and_prepare_data(data_path: str, config: dict) -> tuple:
     target_col = "Reached_on_Time_Y_N"
     
     # Prepare preprocessor
-    preprocessor = DataPreprocessor()
     preprocessor.identify_features(df, numerical_cols, categorical_cols, target_col)
     
-    # Preprocess data
+    logger.info("Data Processing: Applying preprocessing steps (scaling, encoding).")
     logger.info("Preprocessing data...")
     df_processed = preprocessor.preprocess(
         df,
@@ -77,10 +88,10 @@ def load_and_prepare_data(data_path: str, config: dict) -> tuple:
     )
     
     # Feature engineering
-    logger.info("Engineering features...")
-    engineer = FeatureEngineer()
+    logger.info("Feature Engineering: Creating new features.")
     df_processed = engineer.engineer_features(df_processed)
     
+    # Feature Selection (implicit via model training and importance)
     # Prepare features and target
     X = df_processed.drop(columns=[target_col])
     y = df_processed[target_col]
@@ -97,7 +108,7 @@ def load_and_prepare_data(data_path: str, config: dict) -> tuple:
     logger.info(f"Test set shape: {X_test.shape}")
     logger.info(f"Class distribution (train): {y_train.value_counts().to_dict()}")
     
-    return X_train, X_test, y_train, y_test, X.columns.tolist()
+    return X_train, X_test, y_train, y_test, preprocessor, engineer, X.columns.tolist()
 
 
 def train_model(X_train: pd.DataFrame, y_train: pd.Series) -> ModelTrainer:
@@ -111,7 +122,7 @@ def train_model(X_train: pd.DataFrame, y_train: pd.Series) -> ModelTrainer:
     Returns:
         Trained ModelTrainer instance
     """
-    logger.info("Training model...")
+    logger.info("Model Training: Initializing and training XGBoost model.") # Removed emoji
     
     trainer = ModelTrainer(random_state=42)
     history = trainer.train_xgboost(
@@ -138,7 +149,7 @@ def evaluate_model(trainer: ModelTrainer, X_test: pd.DataFrame, y_test: pd.Serie
     Returns:
         Dictionary of evaluation metrics
     """
-    logger.info("Evaluating model...")
+    logger.info("Model Evaluation: Making predictions and calculating metrics.") # Removed emoji
     
     # Predictions
     y_pred = trainer.model.predict(X_test)
@@ -159,6 +170,14 @@ def evaluate_model(trainer: ModelTrainer, X_test: pd.DataFrame, y_test: pd.Serie
     # Classification report
     report = evaluator.get_classification_report(y_test, y_pred)
     logger.info(f"\nClassification Report:\n{report}")
+
+    # Feature importance
+    logger.info("\nFeature Selection/Importance: Top 10 features from the model.")
+    importance_df = evaluator.get_feature_importance(trainer.model)
+    if not importance_df.empty:
+        logger.info("\n🎯 TOP 10 FEATURE IMPORTANCE:")
+        for idx, row in importance_df.head(10).iterrows():
+            logger.info(f"  {row['feature']:.<40} {row['importance']:>8.4f}")
     
     return metrics
 
@@ -168,59 +187,7 @@ def save_model(trainer: ModelTrainer, model_path: str) -> None:
     Path(model_path).parent.mkdir(parents=True, exist_ok=True)
     trainer.save_model(model_path)
     logger.info(f"Model saved to {model_path}")
-
-
-def load_config() -> dict:
-    """Load configuration."""
-    return {
-        'data': {
-            'test_size': 0.2,
-            'random_state': 42,
-        },
-        'features': {
-            'numerical': [
-                'Customer_care_calls',
-                'Customer_rating',
-                'Cost_of_the_Product',
-                'Prior_purchases',
-                'Discount_offered',
-                'Weight_in_gms',
-            ],
-            'categorical': [
-                'Warehouse_block',
-                'Mode_of_Shipment',
-                'Product_importance',
-                'Gender',
-            ],
-        },
-        'model': {
-            'type': 'xgboost',
-            'threshold': 0.5,
-        },
-    }
-
-
-def create_sample_data() -> pd.DataFrame:
-    """Create sample data for demonstration."""
-    np.random.seed(42)
-    n_samples = 1000
-    
-    df = pd.DataFrame({
-        'Warehouse_block': np.random.choice(['A', 'B', 'C', 'D', 'E', 'F'], n_samples),
-        'Mode_of_Shipment': np.random.choice(['Ship', 'Flight', 'Road'], n_samples),
-        'Customer_care_calls': np.random.randint(0, 7, n_samples),
-        'Customer_rating': np.random.uniform(1, 5, n_samples).round(1),
-        'Cost_of_the_Product': np.random.randint(100, 50000, n_samples),
-        'Prior_purchases': np.random.randint(0, 15, n_samples),
-        'Product_importance': np.random.choice(['Low', 'Medium', 'High'], n_samples),
-        'Gender': np.random.choice(['M', 'F'], n_samples),
-        'Discount_offered': np.random.uniform(0, 100, n_samples).round(1),
-        'Weight_in_gms': np.random.randint(100, 10000, n_samples),
-        'Reached_on_Time_Y_N': np.random.randint(0, 2, n_samples),
-    })
-    
-    return df
-
+ # Removed save_model function as it's now handled by ModelPredictor.save
 
 def main(args):
     """Main training function."""
@@ -228,28 +195,44 @@ def main(args):
     logger.info("Starting ML Pipeline")
     logger.info("=" * 80)
     
-    # Load configuration
-    config = load_config()
+    config = get_config()
     
     # Load and prepare data
-    X_train, X_test, y_train, y_test, feature_names = load_and_prepare_data(
+    X_train, X_test, y_train, y_test, preprocessor, engineer, feature_names = load_and_prepare_data(
         args.data_path,
         config
     )
     
     # Train model
-    trainer = train_model(X_train, y_train)
+    logger.info("Model Training: Starting model training phase.") # Removed emoji
+    trainer = train_model(X_train, y_train, X_test, y_test) # Pass X_test, y_test for early stopping
     
+    # Save the raw trained model for SHAP explainer (needed for TreeExplainer)
+    trainer.save_model(Path(args.output_path).parent / "model.pkl")
+
     # Evaluate model
+    logger.info("Model Evaluation: Starting model evaluation phase.")
     metrics = evaluate_model(trainer, X_test, y_test)
     
-    # Save model
-    save_model(trainer, args.output_path)
-    
+    # Save the complete prediction pipeline
+    logger.info("Saving complete MLOps prediction pipeline.")
+    full_predictor_pipeline = ModelPredictor(
+        preprocessor=preprocessor,
+        engineer=engineer,
+        model=trainer.model
+    )
+    full_predictor_pipeline.save(Path(args.output_path).parent / "full_pipeline.pkl")
+
+    # Save preprocessor components (scaler and encoders) separately for SHAP explainer
+    # This is a temporary measure until SHAP can work directly with the full pipeline
+    joblib.dump(preprocessor.scaler, Path(args.output_path).parent / "scaler.pkl")
+    joblib.dump(preprocessor.label_encoders, Path(args.output_path).parent / "label_encoders.pkl")
+    # Also save X_train_processed for SHAP background
+    X_train.to_csv(Path(args.output_path).parent / "X_train_processed.csv", index=False) # X_train is already processed
+    logger.info("Preprocessor components and processed training data saved for SHAP.")
     # Save metrics
-    metrics_file = Path(args.output_path).parent / "metrics.json"
+    metrics_file = Path(args.output_path).parent / "metrics.json" # Removed emoji
     with open(metrics_file, 'w') as f:
-        # Convert numpy types to native Python types for JSON serialization
         metrics_json = {k: float(v) if isinstance(v, (np.floating, float)) else v 
                        for k, v in metrics.items() if k != 'confusion_matrix'}
         json.dump(metrics_json, f, indent=2)

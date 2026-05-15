@@ -47,7 +47,8 @@ def setup_logging(
         file_handler = logging.handlers.RotatingFileHandler(
             log_file,
             maxBytes=10 * 1024 * 1024,  # 10MB
-            backupCount=5
+            backupCount=5,
+            encoding='utf-8' # Explicitly set encoding to UTF-8
         )
         file_handler.setLevel(getattr(logging, log_level.upper()))
         file_handler.setFormatter(formatter)

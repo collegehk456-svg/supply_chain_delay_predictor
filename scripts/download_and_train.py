@@ -2,6 +2,9 @@
 Complete script to download dataset from Kaggle and train the model.
 Handles data loading, preprocessing, feature engineering, and model training.
 """
+import os
+import sys
+import logging
 
 import argparse
 import logging
@@ -22,6 +25,9 @@ except ImportError:
     import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install", "kagglehub"])
     import kagglehub
+
+# Set default encoding for stdout/stderr to UTF-8 to prevent UnicodeEncodeError on some systems
+os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
 
 # Import ML pipeline components
 from ml_pipeline.data.loader import DataLoader
@@ -224,12 +230,13 @@ def train_model(X_train: pd.DataFrame, y_train: pd.Series) -> ModelTrainer:
     trainer = ModelTrainer(random_state=42)
     history = trainer.train_xgboost(
         X_train, y_train,
+        X_val=X_test, y_val=y_test,
         cv_folds=5,
         early_stopping=True,
         early_stopping_rounds=10
     )
     
-    logger.info(f"\nCross-validation ROC-AUC: {history['cv_mean']:.4f}")
+    logger.info(f"\nCross-validation ROC-AUC: {history['cv_roc_auc_mean']:.4f}")
     logger.info(f"Cross-validation Std: {history['cv_std']:.4f}")
     logger.info(f"Train Accuracy: {history['train_accuracy']:.4f}")
     logger.info(f"Test Accuracy: {history['test_accuracy']:.4f}")
@@ -274,7 +281,7 @@ def evaluate_model(trainer: ModelTrainer, X_test: pd.DataFrame, y_test: pd.Serie
     logger.info(f"\n📋 CLASSIFICATION REPORT:\n{report}")
     
     # Feature importance
-    logger.info("\n🎯 TOP 10 FEATURE IMPORTANCE:")
+    logger.info("\nTOP 10 FEATURE IMPORTANCE:")
     importance_df = evaluator.get_feature_importance(trainer.model)
     if not importance_df.empty:
         for idx, row in importance_df.head(10).iterrows():
@@ -323,13 +330,13 @@ def load_config() -> dict:
 def main(args):
     """Main training function."""
     logger.info("\n")
-    logger.info("🚀" * 40)
+    logger.info("=" * 40)
     logger.info("SMARTSHIP AI - MODEL TRAINING PIPELINE")
-    logger.info("🚀" * 40)
+    logger.info("=" * 40)
     logger.info(f"Timestamp: {datetime.now().isoformat()}")
     
     try:
-        # Create logs directory
+        # Create logs directory (if not exists)
         Path('logs').mkdir(exist_ok=True)
         
         # Load configuration
@@ -343,7 +350,7 @@ def main(args):
             data_file = args.data_path
         
         # Load and prepare data
-        X_train, X_test, y_train, y_test, feature_names = load_and_prepare_data(
+        X_train, X_test, y_train, y_test, preprocessor, engineer, feature_names = load_and_prepare_data(
             data_file,
             config
         )
@@ -351,11 +358,27 @@ def main(args):
         # Train model
         trainer = train_model(X_train, y_train)
         
+        # Save the raw trained model for SHAP explainer
+        trainer.save_model(Path(args.output_path).parent / "model.pkl")
+
         # Evaluate model
         metrics = evaluate_model(trainer, X_test, y_test)
         
-        # Save model
-        save_model(trainer, args.output_path)
+        # Save the complete prediction pipeline
+        from ml_pipeline.models.predictor import ModelPredictor # Import here to avoid circular dependency
+        full_predictor_pipeline = ModelPredictor(
+            preprocessor=preprocessor,
+            engineer=engineer,
+            model=trainer.model
+        )
+        full_predictor_pipeline.save(Path(args.output_path).parent / "full_pipeline.pkl")
+
+        # Save preprocessor components (scaler and encoders) separately for SHAP explainer
+        # And save X_train_processed for SHAP background
+        joblib.dump(preprocessor.scaler, Path(args.output_path).parent / "scaler.pkl")
+        joblib.dump(preprocessor.label_encoders, Path(args.output_path).parent / "label_encoders.pkl")
+        X_train.to_csv(Path(args.output_path).parent / "X_train_processed.csv", index=False)
+        logger.info("Preprocessor components and processed training data saved for SHAP.")
         
         # Save metrics
         metrics_file = Path(args.output_path).parent / "metrics.json"
@@ -369,7 +392,7 @@ def main(args):
         
         # Summary
         logger.info("\n" + "=" * 80)
-        logger.info("✅ TRAINING COMPLETED SUCCESSFULLY!")
+        logger.info("TRAINING COMPLETED SUCCESSFULLY!")
         logger.info("=" * 80)
         logger.info(f"\n📈 Model Performance Summary:")
         logger.info(f"  • Accuracy:  {metrics['accuracy']*100:.2f}%")
@@ -385,7 +408,7 @@ def main(args):
         logger.info("=" * 80 + "\n")
         
     except Exception as e:
-        logger.error(f"\n❌ Training failed: {str(e)}", exc_info=True)
+        logger.error(f"\nTraining failed: {str(e)}", exc_info=True)
         sys.exit(1)
 
 
