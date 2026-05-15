@@ -60,7 +60,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Configuration
-API_URL = "http://localhost:8000"
+import os
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 # Initialize session state
 if 'predictions_history' not in st.session_state:

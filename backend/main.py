@@ -12,7 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from datetime import datetime
+from pathlib import Path
 import json
+import os
+import pandas as pd
 
 from backend.config import get_config
 from backend.logging_config import setup_logging, get_logger
@@ -20,8 +23,9 @@ from backend.api.schemas.shipment import (
     ShipmentInput, ShipmentPrediction, ShipmentExplanation,
     BatchPredictionRequest, BatchPredictionResponse, HealthStatus
 )
-from ml_pipeline.models.predictor import ModelPredictor
-from ml_pipeline.models.explainer import SHAPExplainer
+from src.ml_pipeline.models.predictor import ModelPredictor
+from src.ml_pipeline.models.explainer import SHAPExplainer
+from src.ml_pipeline.ai import ExplanationGenerator, ActionRecommender
 from backend.services.recommendation_service import RecommendationService
 import joblib
 import numpy as np
@@ -37,6 +41,8 @@ logger = get_logger(__name__)
 # Global variables
 predictor: Optional[ModelPredictor] = None
 explainer: Optional[SHAPExplainer] = None
+explanation_generator: Optional[ExplanationGenerator] = None
+action_recommender: Optional[ActionRecommender] = None
 recommendation_service: Optional[RecommendationService] = None
 prediction_count = 0
 
@@ -51,20 +57,21 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up application...")
     try:
         # Load the complete prediction pipeline (MLOps style)
-        # This loads the preprocessor, engineer, and model together
-        predictor = ModelPredictor.load("models/production/full_pipeline.pkl")
+        pipeline_path = config.get('model.full_pipeline_path', 'models/production/full_pipeline.pkl')
+        if not Path(pipeline_path).exists():
+            raise FileNotFoundError(f"Pipeline file not found: {pipeline_path}")
+        predictor = ModelPredictor.load(pipeline_path)
         logger.info("Complete ModelPredictor pipeline loaded successfully")
         
         # Initialize SHAP explainer
         try:
-            import pandas as pd
-            model = joblib.load('models/production/model.pkl')
+            model_path = config.get('model.path', 'models/production/model.pkl')
+            model = joblib.load(model_path)
             
             # Load processed training data for SHAP background
             try:
                 X_train = pd.read_csv('models/production/X_train_processed.csv')
-            except:
-                # Fallback: create dummy background with correct dimensions
+            except Exception:
                 X_train = pd.DataFrame(np.random.randn(100, 10))
             
             feature_names = [
@@ -78,7 +85,12 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"SHAP initialization failed: {e}. Continuing without SHAP.")
         
-        # Initialize recommendation service
+        # Initialize generative AI components
+        explanation_generator = ExplanationGenerator(api_key=os.getenv('GENAI_API_KEY'))
+        action_recommender = ActionRecommender(api_key=os.getenv('GENAI_API_KEY'))
+        logger.info("Generative explainability and recommendation engines initialized")
+        
+        # Initialize standard recommendation service
         recommendation_service = RecommendationService()
         logger.info("Recommendation service initialized")
         
@@ -252,6 +264,12 @@ async def predict_batch(request: BatchPredictionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/v1/batch_predict", response_model=BatchPredictionResponse, tags=["Predictions"])
+async def batch_predict(request: BatchPredictionRequest):
+    """Alias for batch prediction."""
+    return await predict_batch(request)
+
+
 @app.post("/api/v1/predict-with-explanation", response_model=ShipmentExplanation, tags=["Predictions"])
 async def predict_with_explanation(request: ShipmentInput):
     """
@@ -272,19 +290,37 @@ async def predict_with_explanation(request: ShipmentInput):
         # Get prediction
         result = predictor.predict_single(request.model_dump())
         
-        # Generate explanation
-        explanation_text = _generate_explanation(request, result)
-        recommendations = _generate_recommendations(request, result)
-        
         # Get feature importance
-        importance = predictor.get_feature_importance(top_n=5)
+        importance_df = predictor.get_feature_importance(top_n=5)
         top_factors = [
             {
                 "feature": row['feature'],
                 "importance": float(row['importance'])
             }
-            for _, row in importance.iterrows()
+            for _, row in importance_df.iterrows()
         ]
+        importance_dict = {row['feature']: float(row['importance']) for _, row in importance_df.iterrows()}
+        feature_values = request.model_dump()
+        
+        # Generate explanation using GenAI or fallback
+        explanation_text = _generate_explanation(request, result)
+        if explanation_generator is not None:
+            explanation_text = explanation_generator.generate_explanation(
+                result['prediction'],
+                result['probability_delayed'],
+                feature_values,
+                importance_dict,
+            )
+
+        # Generate recommendations using GenAI or fallback
+        recommendations = _generate_recommendations(request, result)
+        if action_recommender is not None:
+            recommendations = action_recommender.get_recommendations(
+                result['prediction'],
+                result['probability_delayed'],
+                feature_values,
+                importance_dict,
+            )
         
         return ShipmentExplanation(
             prediction=result['prediction'],
@@ -381,13 +417,28 @@ async def smart_predict(request: ShipmentInput):
             explanation = explainer.explain_single(X_transformed.values[0])
             top_factors = explanation['top_3_factors']
             top_values = [float(v) for v in explanation['top_3_values']]
+
+        importance_df = predictor.get_feature_importance(top_n=5)
+        importance_dict = {row['feature']: float(row['importance']) for _, row in importance_df.iterrows()}
+        feature_values = request.model_dump()
         
-        # Get recommendations
+        # Generate recommendations
         recommendations = recommendation_service.generate(
             shipment_data=request.model_dump(),
             predicted_probability=prediction_prob,
             top_factors=top_factors
         )
+        if action_recommender is not None:
+            recommendations = {
+                'recommendations': action_recommender.get_recommendations(
+                    prediction,
+                    prediction_prob,
+                    feature_values,
+                    importance_dict,
+                ),
+                'estimated_delay_reduction': recommendations.get('estimated_delay_reduction', '0%'),
+                'priority_recommendation': recommendations.get('priority_recommendation')
+            }
         
         return {
             "prediction": prediction,
@@ -396,13 +447,13 @@ async def smart_predict(request: ShipmentInput):
             "top_factors": top_factors,
             "shap_contributions": top_values,
             "recommendations": recommendations['recommendations'],
-            "estimated_improvement": recommendations['estimated_delay_reduction'],
+            "estimated_improvement": recommendations.get('estimated_delay_reduction', '0%'),
             "priority_action": recommendations['priority_recommendation']['action'] 
-                               if recommendations['priority_recommendation'] else None,
+                               if recommendations.get('priority_recommendation') else None,
             "business_impact": {
                 "current_delay_risk": f"{prediction_prob*100:.1f}%",
                 "recommended_actions": len(recommendations['recommendations']),
-                "potential_savings": f"${recommendations['total_potential_improvement']*500:.0f}" if recommendations['total_potential_improvement'] > 0 else "$0"
+                "potential_savings": f"${recommendations.get('total_potential_improvement', 0)*500:.0f}" if recommendations.get('total_potential_improvement', 0) > 0 else "$0"
             }
         }
     except Exception as e:

@@ -130,13 +130,15 @@ class DataPreprocessor:
         
         for col in self.categorical_cols:
             if col in df.columns:
+                values = df[col].astype(str).str.strip().str.lower()
                 if is_fit:
                     encoder = LabelEncoder()
-                    df[col] = encoder.fit_transform(df[col].astype(str))
+                    df[col] = encoder.fit_transform(values)
                     self.label_encoders[col] = encoder
                 else:
                     if col not in self.label_encoders:
                         raise ValueError(f"Encoder for {col} not fitted.")
-                    df[col] = self.label_encoders[col].transform(df[col].astype(str))
+                    mapping = {cls: idx for idx, cls in enumerate(self.label_encoders[col].classes_)}
+                    df[col] = values.map(mapping).fillna(-1).astype(int)
         
         return df

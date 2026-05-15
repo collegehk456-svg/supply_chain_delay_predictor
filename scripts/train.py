@@ -6,27 +6,28 @@ Orchestrates the complete ML pipeline from data loading to model evaluation.
 import argparse
 import logging
 import json
+import os
 import sys
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 
-# Add project root to path
 import joblib
 
-# Set default encoding for stdout/stderr to UTF-8 to prevent UnicodeEncodeError on some systems
-os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Ensure root directory and src package are on sys.path
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Import ML pipeline components
-from ml_pipeline.data.loader import DataLoader
-from ml_pipeline.data.preprocessor import DataPreprocessor
-from ml_pipeline.features.engineer import FeatureEngineer
-from ml_pipeline.models.trainer import ModelTrainer
-from ml_pipeline.models.evaluator import ModelEvaluator
+from src.ml_pipeline.data.preprocessor import DataPreprocessor
+from src.ml_pipeline.features.engineer import FeatureEngineer
+from src.ml_pipeline.models.trainer import ModelTrainer
+from src.ml_pipeline.models.evaluator import ModelEvaluator
+from src.ml_pipeline.models.predictor import ModelPredictor
 
 from backend.config import get_config
 # Setup logging
@@ -63,16 +64,42 @@ def load_and_prepare_data(data_path: str, config: dict) -> tuple:
     # Normalize column names (replace dots with underscores for consistency)
     df.columns = [col.replace('.', '_').replace('/', '_') for col in df.columns]
 
+    # Drop metadata columns that are not model features
+    non_feature_columns = [col for col in ['ID', 'Id', 'id', 'Shipment_ID', 'shipment_id'] if col in df.columns]
+    if non_feature_columns:
+        logger.info(f"Dropping non-feature columns: {non_feature_columns}")
+        df = df.drop(columns=non_feature_columns)
+
     # Data Processing
     logger.info("Data Processing: Initializing preprocessor and feature engineer.")
     preprocessor = DataPreprocessor()
     engineer = FeatureEngineer()
 
     
-    # Get feature names
-    numerical_cols = config['features']['numerical']
-    categorical_cols = config['features']['categorical']
-    target_col = "Reached_on_Time_Y_N"
+    # Detect target column robustly
+    target_col = config['features'].get('target', 'Reached_on_Time_Y_N')
+    if target_col not in df.columns:
+        candidate_columns = [
+            'Reached_on_Time_Y_N',
+            'Reached_on_Time_Y_N',
+            'Reached_on_Time_Y_N'
+        ]
+        candidate_columns += [col for col in df.columns if 'reached' in col.lower() or 'delay' in col.lower()]
+        boolean_columns = [
+            col for col in df.columns
+            if df[col].dtype in ['int64', 'int32'] and set(df[col].dropna().unique()).issubset({0, 1})
+        ]
+        candidate_columns.extend(boolean_columns)
+        target_col = next((col for col in candidate_columns if col in df.columns), None)
+
+    if target_col is None:
+        raise ValueError(f"Could not identify target column. Available columns: {df.columns.tolist()}")
+
+    df = df.rename(columns={target_col: 'Reached_on_Time_Y_N'})
+    target_col = 'Reached_on_Time_Y_N'
+
+    numerical_cols = [col for col in config['features']['numerical'] if col in df.columns]
+    categorical_cols = [col for col in config['features']['categorical'] if col in df.columns]
     
     # Prepare preprocessor
     preprocessor.identify_features(df, numerical_cols, categorical_cols, target_col)
@@ -111,28 +138,41 @@ def load_and_prepare_data(data_path: str, config: dict) -> tuple:
     return X_train, X_test, y_train, y_test, preprocessor, engineer, X.columns.tolist()
 
 
-def train_model(X_train: pd.DataFrame, y_train: pd.Series) -> ModelTrainer:
+def train_model(X_train: pd.DataFrame, y_train: pd.Series,
+                X_val: Optional[pd.DataFrame] = None,
+                y_val: Optional[pd.Series] = None,
+                config: Optional[dict] = None) -> ModelTrainer:
     """
     Train the ML model.
     
     Args:
         X_train: Training features
         y_train: Training target
+        X_val: Validation features
+        y_val: Validation target
+        config: Configuration dictionary
     
     Returns:
         Trained ModelTrainer instance
     """
-    logger.info("Model Training: Initializing and training XGBoost model.") # Removed emoji
+    logger.info("Model Training: Initializing and training XGBoost model.")
     
-    trainer = ModelTrainer(random_state=42)
+    config = config or {}
+    trainer = ModelTrainer(random_state=config.get('training', {}).get('random_state', 42))
     history = trainer.train_xgboost(
-        X_train, y_train,
-        cv_folds=5,
-        early_stopping=True,
-        early_stopping_rounds=10
+        X_train,
+        y_train,
+        X_val=X_val,
+        y_val=y_val,
+        cv_folds=config.get('training', {}).get('cv_folds', 5),
+        early_stopping=config.get('training', {}).get('early_stopping', True),
+        early_stopping_rounds=config.get('training', {}).get('early_stopping_rounds', 10)
     )
     
-    logger.info(f"Cross-validation AUC: {history['cv_mean']:.4f}")
+    if 'validation_roc_auc' in history:
+        logger.info(f"Validation ROC-AUC: {history['validation_roc_auc']:.4f}")
+    elif 'cv_roc_auc_mean' in history:
+        logger.info(f"Cross-validation ROC-AUC: {history['cv_roc_auc_mean']:.4f}")
     
     return trainer
 
@@ -192,27 +232,28 @@ def save_model(trainer: ModelTrainer, model_path: str) -> None:
 def main(args):
     """Main training function."""
     logger.info("=" * 80)
-    logger.info("Starting ML Pipeline")
+    logger.info("STARTING TRAINING")
     logger.info("=" * 80)
     
     config = get_config()
     
     # Load and prepare data
+    logger.info("LOADING DATA")
     X_train, X_test, y_train, y_test, preprocessor, engineer, feature_names = load_and_prepare_data(
         args.data_path,
         config
     )
     
     # Train model
-    logger.info("Model Training: Starting model training phase.") # Removed emoji
-    trainer = train_model(X_train, y_train, X_test, y_test) # Pass X_test, y_test for early stopping
+    logger.info("TRAINING MODEL")
+    trainer = train_model(X_train, y_train, X_test, y_test, config=config)
     
     # Save the raw trained model for SHAP explainer (needed for TreeExplainer)
     trainer.save_model(Path(args.output_path).parent / "model.pkl")
 
     # Evaluate model
-    logger.info("Model Evaluation: Starting model evaluation phase.")
     metrics = evaluate_model(trainer, X_test, y_test)
+    logger.info("EVALUATION COMPLETE")
     
     # Save the complete prediction pipeline
     logger.info("Saving complete MLOps prediction pipeline.")

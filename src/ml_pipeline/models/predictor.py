@@ -30,14 +30,19 @@ class ModelPredictor:
     
     def _transform_data(self, raw_data: pd.DataFrame) -> pd.DataFrame:
         """Apply preprocessing and feature engineering to raw data."""
-        # Ensure column names are normalized before preprocessing
+        raw_data = raw_data.copy()
         raw_data.columns = [col.replace('.', '_').replace('/', '_') for col in raw_data.columns]
-        
+
+        # Map lower-case feature names from API/CLI inputs to training feature names
+        feature_cols = (self.preprocessor.numerical_cols or []) + (self.preprocessor.categorical_cols or [])
+        rename_map = {feature.lower(): feature for feature in feature_cols}
+        raw_data.columns = [rename_map.get(col.lower(), col) for col in raw_data.columns]
+
         # Apply preprocessing (scaling, encoding)
-        processed_data = self.preprocessor.preprocess(raw_data.copy(), is_fit=False, handle_outliers=False, scale=True, encode_categorical=True)
+        processed_data = self.preprocessor.preprocess(raw_data, is_fit=False, handle_outliers=False, scale=True, encode_categorical=True)
         # Apply feature engineering
         engineered_data = self.engineer.engineer_features(processed_data.copy())
-        
+
         return engineered_data
     
     def predict_single(self, raw_data_dict: Dict[str, Any], threshold: float = 0.5) -> Dict[str, Any]:
@@ -54,13 +59,13 @@ class ModelPredictor:
         transformed_df = self._transform_data(raw_df)
         
         proba = self.model.predict_proba(transformed_df)[:, 1]
-        prediction = (proba >= threshold).astype(int)[0]
-        confidence = np.max(proba)[0] if prediction == 1 else np.max(1 - proba)[0]
+        prediction = int(proba[0] >= threshold)
+        confidence = float(proba[0] if prediction == 1 else 1.0 - proba[0])
         
         return {
-            "prediction": int(prediction),
+            "prediction": prediction,
             "probability_delayed": float(proba[0]),
-            "confidence": float(confidence),
+            "confidence": confidence,
         }
     
     def predict_batch(self, raw_data_df: pd.DataFrame, threshold: float = 0.5) -> List[Dict[str, Any]]:

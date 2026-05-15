@@ -30,11 +30,11 @@ except ImportError:
 os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
 
 # Import ML pipeline components
-from ml_pipeline.data.loader import DataLoader
-from ml_pipeline.data.preprocessor import DataPreprocessor
-from ml_pipeline.features.engineer import FeatureEngineer
-from ml_pipeline.models.trainer import ModelTrainer
-from ml_pipeline.models.evaluator import ModelEvaluator
+from src.ml_pipeline.data.loader import DataLoader
+from src.ml_pipeline.data.preprocessor import DataPreprocessor
+from src.ml_pipeline.features.engineer import FeatureEngineer
+from src.ml_pipeline.models.trainer import ModelTrainer
+from src.ml_pipeline.models.evaluator import ModelEvaluator
 
 # Setup logging
 logging.basicConfig(
@@ -158,7 +158,13 @@ def load_and_prepare_data(data_path: str, config: dict) -> tuple:
     
     # Normalize column names
     df.columns = [col.replace('.', '_').replace('/', '_') for col in df.columns]
-    
+
+    # Drop metadata columns that are not model features
+    non_feature_columns = [col for col in ['ID', 'Id', 'id', 'Shipment_ID', 'shipment_id'] if col in df.columns]
+    if non_feature_columns:
+        logger.info(f"Dropping non-feature columns: {non_feature_columns}")
+        df = df.drop(columns=non_feature_columns)
+
     # Identify numerical and categorical columns
     numerical_cols = config['features']['numerical']
     categorical_cols = config['features']['categorical']
@@ -212,13 +218,16 @@ def load_and_prepare_data(data_path: str, config: dict) -> tuple:
     return X_train, X_test, y_train, y_test, X.columns.tolist()
 
 
-def train_model(X_train: pd.DataFrame, y_train: pd.Series) -> ModelTrainer:
+def train_model(X_train: pd.DataFrame, y_train: pd.Series,
+                X_val: pd.DataFrame, y_val: pd.Series) -> ModelTrainer:
     """
     Train the ML model.
     
     Args:
         X_train: Training features
         y_train: Training target
+        X_val: Validation features
+        y_val: Validation target
     
     Returns:
         Trained ModelTrainer instance
@@ -229,17 +238,24 @@ def train_model(X_train: pd.DataFrame, y_train: pd.Series) -> ModelTrainer:
     
     trainer = ModelTrainer(random_state=42)
     history = trainer.train_xgboost(
-        X_train, y_train,
-        X_val=X_test, y_val=y_test,
+        X_train,
+        y_train,
+        X_val=X_val,
+        y_val=y_val,
         cv_folds=5,
         early_stopping=True,
         early_stopping_rounds=10
     )
     
-    logger.info(f"\nCross-validation ROC-AUC: {history['cv_roc_auc_mean']:.4f}")
-    logger.info(f"Cross-validation Std: {history['cv_std']:.4f}")
-    logger.info(f"Train Accuracy: {history['train_accuracy']:.4f}")
-    logger.info(f"Test Accuracy: {history['test_accuracy']:.4f}")
+    if 'validation_roc_auc' in history:
+        logger.info(f"Validation ROC-AUC: {history['validation_roc_auc']:.4f}")
+    elif 'cv_roc_auc_mean' in history:
+        logger.info(f"Cross-validation ROC-AUC: {history['cv_roc_auc_mean']:.4f}")
+    
+    if 'validation_accuracy' in history:
+        logger.info(f"Validation Accuracy: {history['validation_accuracy']:.4f}")
+    if 'train_accuracy' in history:
+        logger.info(f"Train Accuracy: {history['train_accuracy']:.4f}")
     
     return trainer
 
