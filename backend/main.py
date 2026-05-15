@@ -27,6 +27,7 @@ from src.ml_pipeline.models.predictor import ModelPredictor
 from src.ml_pipeline.models.explainer import SHAPExplainer
 from src.ml_pipeline.ai import ExplanationGenerator, ActionRecommender
 from backend.services.recommendation_service import RecommendationService
+from backend.services.ai_chat_service import AIChatService
 import joblib
 import numpy as np
 
@@ -44,6 +45,7 @@ explainer: Optional[SHAPExplainer] = None
 explanation_generator: Optional[ExplanationGenerator] = None
 action_recommender: Optional[ActionRecommender] = None
 recommendation_service: Optional[RecommendationService] = None
+ai_chat_service: Optional[AIChatService] = None
 prediction_count = 0
 
 
@@ -51,7 +53,7 @@ prediction_count = 0
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown."""
-    global predictor, explainer, recommendation_service
+    global predictor, explainer, recommendation_service, ai_chat_service
     
     # Startup
     logger.info("Starting up application...")
@@ -93,6 +95,10 @@ async def lifespan(app: FastAPI):
         # Initialize standard recommendation service
         recommendation_service = RecommendationService()
         logger.info("Recommendation service initialized")
+        
+        # Initialize AI chat service
+        ai_chat_service = AIChatService()
+        logger.info("AI Chat service initialized")
         
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
@@ -510,6 +516,46 @@ def _generate_recommendations(request: ShipmentInput, prediction: dict) -> list:
         recommendations.append("Consider rerouting from remote warehouse blocks")
     
     return recommendations if recommendations else ["Standard delivery processes should be sufficient"]
+
+
+# AI Chat endpoint
+@app.post("/api/v1/chat", tags=["AI Assistant"])
+async def chat(request: dict):
+    """
+    AI chat assistant with RAG-powered supply chain knowledge.
+    
+    Args:
+        request: Dict with 'message' and optional 'session_id'
+    
+    Returns:
+        AI response with sources and session context
+    """
+    global ai_chat_service
+    
+    if ai_chat_service is None:
+        raise HTTPException(status_code=503, detail="AI chat service not initialized")
+    
+    message = request.get("message", "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    
+    session_id = request.get("session_id", "default")
+    
+    try:
+        result = ai_chat_service.chat(message, session_id)
+        return result
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/chat/suggestions", tags=["AI Assistant"])
+async def get_chat_suggestions():
+    """Get suggested questions for the AI chat assistant."""
+    global ai_chat_service
+    if ai_chat_service is None:
+        return {"suggestions": []}
+    return {"suggestions": ai_chat_service.get_suggestions()}
 
 
 # Analytics endpoints

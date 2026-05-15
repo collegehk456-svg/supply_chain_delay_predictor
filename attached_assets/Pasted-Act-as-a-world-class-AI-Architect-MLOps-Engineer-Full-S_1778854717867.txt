@@ -1,0 +1,332 @@
+Act as a world-class AI Architect, MLOps Engineer, Full Stack Engineer, and Hackathon Winner with:
+
+* 20+ years of MLOps experience
+* 10+ international hackathon wins
+* deep expertise in Generative AI, LLMs, RAG systems, Streamlit, FastAPI, vector databases, and production AI systems
+
+Your task is to UPGRADE my CURRENT project into a COMPLETE production-grade AI platform.
+
+IMPORTANT:
+DO NOT rebuild the project from scratch.
+Use the CURRENT frontend, backend, and project structure.
+Enhance and optimize the existing system into a hackathon-winning, investor-ready AI product.
+
+==================================================
+MAIN GOAL
+=========
+
+Transform the current project into:
+
+* a fully working AI-powered platform
+* production-grade architecture
+* modern AI SaaS application
+* scalable MLOps system
+* beautiful futuristic frontend
+* intelligent Generative AI system
+
+The final project should feel like:
+
+* OpenAI-level polish
+* startup demo quality
+* real-world deployable AI product
+* billion-dollar SaaS platform
+
+==================================================
+CRITICAL REQUIREMENTS
+=====================
+
+1. KEEP CURRENT PROJECT STRUCTURE
+
+* preserve existing frontend
+* preserve backend APIs
+* preserve workflows
+* preserve current features
+* improve instead of replacing
+
+2. FIX EVERYTHING THAT IS BROKEN
+
+* debug frontend issues
+* fix model inference
+* fix API integration
+* fix state handling
+* fix loading issues
+* fix responsiveness
+* optimize performance
+
+3. MAKE THE AI ACTUALLY WORK PROPERLY
+   The Generative AI system must:
+
+* give intelligent responses
+* maintain conversation context
+* generate meaningful outputs
+* avoid hallucinations as much as possible
+* respond fast
+* feel production-ready
+
+==================================================
+GENERATIVE AI REQUIREMENTS
+==========================
+
+Implement a REAL working GenAI pipeline.
+
+Use:
+
+* LangChain or LlamaIndex
+* RAG architecture
+* vector database
+* embeddings
+* memory management
+* prompt engineering
+* context retrieval
+* document chunking
+* semantic search
+
+The AI system must support:
+
+* chat conversations
+* intelligent Q&A
+* contextual responses
+* summarization
+* recommendations
+* insights generation
+* AI analytics
+
+==================================================
+MODEL TRAINING REQUIREMENTS
+===========================
+
+Train and optimize the ML/AI model properly.
+
+Implement:
+
+* training pipeline
+* preprocessing pipeline
+* feature engineering
+* evaluation metrics
+* experiment tracking
+* hyperparameter tuning
+* model versioning
+* model monitoring
+
+Use:
+
+* scikit-learn
+* XGBoost
+* LightGBM
+* PyTorch/TensorFlow if needed
+* MLflow
+* DVC
+
+==================================================
+MLOPS REQUIREMENTS
+==================
+
+Build production-grade MLOps architecture.
+
+Include:
+
+* modular pipeline
+* CI/CD ready structure
+* Docker support
+* model registry
+* experiment tracking
+* data validation
+* automated retraining
+* logging system
+* monitoring system
+* scalable deployment
+
+Project structure should look enterprise-grade.
+
+==================================================
+AI PIPELINE
+===========
+
+Build complete AI workflow:
+
+Data Ingestion
+→ Data Validation
+→ Preprocessing
+→ Feature Engineering
+→ Model Training
+→ Evaluation
+→ Experiment Tracking
+→ Model Registry
+→ API Serving
+→ Frontend Integration
+→ Monitoring
+
+==================================================
+RAG SYSTEM REQUIREMENTS
+=======================
+
+Implement:
+
+* document upload
+* PDF parsing
+* chunking
+* embeddings generation
+* vector storage
+* semantic retrieval
+* context-aware prompting
+
+Use:
+
+* FAISS / ChromaDB
+* sentence-transformers
+* OpenAI embeddings or local embeddings
+
+==================================================
+FRONTEND REQUIREMENTS
+=====================
+
+Upgrade CURRENT frontend into:
+
+* futuristic AI dashboard
+* premium UI/UX
+* glassmorphism design
+* smooth animations
+* responsive design
+* 3D feel
+* modern analytics platform
+
+Use:
+
+* TailwindCSS
+* custom CSS
+* Plotly charts
+* animated KPI cards
+* modern layouts
+* loading animations
+
+==================================================
+BACKEND REQUIREMENTS
+====================
+
+Create production-ready backend using:
+
+* FastAPI
+* async APIs
+* modular architecture
+* proper error handling
+* logging
+* validation
+* scalable structure
+
+==================================================
+API FEATURES
+============
+
+Implement APIs for:
+
+* AI chat
+* predictions
+* model inference
+* analytics
+* document upload
+* RAG retrieval
+* feedback collection
+* monitoring
+
+==================================================
+DATABASE REQUIREMENTS
+=====================
+
+Use proper database architecture:
+
+* PostgreSQL / SQLite
+* vector DB for embeddings
+* caching
+* session storage
+
+==================================================
+DEPLOYMENT REQUIREMENTS
+=======================
+
+Make project deployment-ready:
+
+* Dockerfile
+* docker-compose
+* requirements.txt
+* environment configs
+* production configs
+* cloud deployment ready
+
+==================================================
+HACKATHON WINNING FEATURES
+==========================
+
+Add WOW features:
+
+* AI insights generation
+* real-time analytics
+* predictive intelligence
+* conversational AI assistant
+* anomaly detection
+* AI-generated summaries
+* smart recommendations
+* live dashboard
+
+==================================================
+PERFORMANCE REQUIREMENTS
+========================
+
+Optimize:
+
+* inference speed
+* frontend rendering
+* API response time
+* vector search speed
+* memory usage
+* scalability
+
+==================================================
+CODE QUALITY
+============
+
+Generate:
+
+* clean modular code
+* enterprise architecture
+* reusable components
+* proper documentation
+* scalable structure
+* production standards
+
+Code should look written by:
+“Senior AI Architect at a top Silicon Valley AI startup.”
+
+==================================================
+FINAL OUTPUT
+============
+
+Provide:
+
+1. improved frontend
+2. working Generative AI pipeline
+3. trained ML model
+4. RAG implementation
+5. MLOps pipeline
+6. FastAPI backend
+7. vector database integration
+8. Docker setup
+9. deployment setup
+10. production-ready architecture
+11. monitoring system
+12. complete documentation
+
+==================================================
+FINAL EXPECTATION
+=================
+
+The final project should:
+
+* actually work end-to-end
+* look visually stunning
+* have intelligent AI responses
+* feel like a real AI startup product
+* be hackathon-winning quality
+* be deployable in production
+
+Do NOT give placeholder code.
+Build a REAL working AI system with production-grade quality.
