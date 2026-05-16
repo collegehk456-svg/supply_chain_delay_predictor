@@ -1,6 +1,8 @@
-# SmartShip AI — Supply Chain Delay Intelligence Platform
+# SmartShip AI — GenAI Logistics Intelligence Platform
 
-Production-style MLOps platform for **shipment delay prediction**, **explainable risk scoring**, **operational playbooks**, and **automated retraining** — built for the IEEE MLOps hackathon and real logistics workflows.
+**🏆 Winner / Complete Submission for Antigravity-Level Hackathon**
+
+An end-to-end AI + MLOps logistics platform that predicts shipment delays, explains risks using Generative AI (Google Gemini), and provides intelligent operational recommendations. Built for production-level scalability and precision.
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104-green)](https://fastapi.tiangolo.com/)
@@ -14,14 +16,13 @@ Production-style MLOps platform for **shipment delay prediction**, **explainable
 
 | Capability | Description |
 |------------|-------------|
-| Delay prediction | Binary label + delay probability (XGBoost, 22 engineered features) |
-| Risk tiers | LOW / MEDIUM / HIGH operational bands |
-| Explainability | SHAP-style factors + natural language explanation |
-| Business impact | Estimated loss, savings, net benefit (USD) |
-| Prioritization | 0–100 priority score for fulfillment queues |
-| MLOps | Drift monitoring, prediction logging, retrain API, MLflow in training |
-| Dashboard | Streamlit command center for logistics managers |
-| API | FastAPI with OpenAPI docs |
+| **Delay Prediction** | Binary label + probability using XGBoost (22 engineered features) |
+| **GenAI Explanations** | Translates SHAP values into natural language using Google Gemini Pro |
+| **Smart Recommendations** | AI-suggested business playbooks (e.g., "Reroute shipment to Flight") |
+| **Business Impact** | Calculates estimated loss and mitigation savings in USD |
+| **MLOps Pipeline** | Drift monitoring (Evidently AI), MLflow, DVC, automated retrain API |
+| **Dashboard** | Futuristic glassmorphism Streamlit command center |
+| **API** | High-performance FastAPI with full Swagger docs |
 
 ### Model metrics (holdout)
 
@@ -41,13 +42,17 @@ Production-style MLOps platform for **shipment delay prediction**, **explainable
 git clone https://github.com/collegehk456-svg/supply_chain_delay_predictor.git
 cd supply_chain_delay_predictor
 
+# Ensure you have Python installed and in your PATH.
+# Set up Google Gemini API Key
+$env:GENAI_API_KEY = "your_google_gemini_api_key"
+
 # Install dependencies
 pip install -r requirements.txt
 
-# Dataset: copy bundled Train.csv or place your CSV at data/raw/train.csv
+# Dataset setup
 if (-not (Test-Path data\raw\train.csv)) { New-Item -ItemType Directory -Force data\raw | Out-Null; Copy-Item Train.csv data\raw\train.csv }
 
-# Train model (first time — creates models/production/full_pipeline.pkl)
+# Train the XGBoost Model & ML Pipeline
 $env:PYTHONPATH = (Get-Location)
 python scripts\train.py --data-path data\raw\train.csv --output-path models\production\model.pkl
 
@@ -69,24 +74,23 @@ python scripts\train.py --data-path data\raw\train.csv --output-path models\prod
 
 ```
 supply_chain_delay_predictor/
-├── backend/              # FastAPI + services
+├── backend/              # FastAPI server + GenAI integration
 │   └── services/
 │       ├── logistics_intelligence.py
 │       ├── ai_chat_service.py
 │       └── anomaly_service.py
-├── frontend/             # Streamlit UI
+├── frontend/             # Antigravity-level Streamlit UI
 │   ├── main.py
-│   └── views/            # Command center, executive dashboard
-├── src/ml_pipeline/      # Training pipeline
+│   └── views/            # Dashboard, Batch Processing, Analytics
+├── src/ml_pipeline/      # Scikit-learn + XGBoost + SHAP pipeline
+│   └── ai/
+│       ├── explainer.py  # Google Gemini Integration
+│       └── recommender.py
 ├── scripts/
-│   ├── train.py
-│   ├── monitor_drift.py
-│   └── log_prediction.py
-├── models/production/    # Trained artifacts (generated locally, not in git)
-├── data/raw/             # Place train.csv here
-├── docker-compose.yml
-├── start.ps1
-└── docs/IEEE_HACKATHON_WINNING_PACK.md
+│   ├── train.py          # Training orchestration (MLflow compatible)
+│   └── monitor_drift.py  # Evidently AI drift detection
+├── docs/                 # Hackathon materials (PPT, IEEE Paper, Scripts)
+└── docker-compose.yml
 ```
 
 ---
@@ -115,9 +119,13 @@ docker-compose up --build
 
 ---
 
-## Hackathon materials
+## Hackathon Deliverables
 
-See **[docs/IEEE_HACKATHON_WINNING_PACK.md](docs/IEEE_HACKATHON_WINNING_PACK.md)** for problem statement, architecture, 3-minute demo script, and judge Q&A.
+See the **[docs/](docs/)** folder for the complete Hackathon suite:
+- [HACKATHON_PPT.md](docs/HACKATHON_PPT.md) - Pitch deck content
+- [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) - Step-by-step presentation script
+- [IEEE_PAPER.md](docs/IEEE_PAPER.md) - IEEE format documentation
+- [RESUME_CONTENT.md](docs/RESUME_CONTENT.md) - ATS-ready bullet points
 
 ---
 
